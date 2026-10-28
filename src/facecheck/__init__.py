@@ -1,0 +1,2 @@
+"""Facecheck application package."""
+
