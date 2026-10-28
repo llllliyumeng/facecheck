@@ -19,6 +19,8 @@ env/
 *.key
 *.crt
 secrets/
+models/
+authorized-sample.mp4
 
 # Local application data
 data/

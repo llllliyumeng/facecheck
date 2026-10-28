@@ -28,3 +28,6 @@ packages = ["src/facecheck"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+    "sface_integration: requires explicit local SFace model and authorized image",
+]

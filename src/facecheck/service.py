@@ -2,19 +2,27 @@ from __future__ import annotations
 
 import os
 import re
-import tempfile
+import shutil
 import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import cv2
+import numpy as np
+
 from .database import TaskRepository
+from .face_detection import FaceDetection, FaceDetectionConfig, load_yunet_detector
+from .face_embedding import SFaceConfig, extract_embedding
+from .face_search import FaceSearchConfig, search_encrypted_video
 from .storage import StorageError, store_encrypted_video
 from .video import VideoProcessingError, read_video_info
 
 MAX_UPLOAD_SIZE = 50 * 1024 * 1024
+MAX_QUERY_IMAGE_SIZE = 10 * 1024 * 1024
 CHUNK_SIZE = 1024 * 1024
 KEY_VERSION = "api-video-key-v1"
 SAFE_FILENAME = re.compile(r"[^A-Za-z0-9._-]+")
+SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
 
 def clean_filename(filename: Optional[str]) -> str:
@@ -44,9 +52,21 @@ class VideoTaskService:
         self.mac_key = mac_key or self._key_from_env("FACECHECK_MAC_KEY")
 
     @staticmethod
+    def _path_from_env(name: str) -> Optional[Path]:
+        value = os.getenv(name)
+        return Path(value) if value else None
+
+    @staticmethod
     def _key_from_env(name: str) -> Optional[bytes]:
         value = os.getenv(name)
         return value.encode("utf-8") if value else None
+
+    @staticmethod
+    def _remove_storage_directory(directory: Path) -> None:
+        if directory.is_symlink():
+            directory.unlink()
+        elif directory.is_dir():
+            shutil.rmtree(directory)
 
     def create_and_process(
         self, source: Path, original_filename: str, source_size: int
@@ -67,10 +87,114 @@ class VideoTaskService:
                 key_version=KEY_VERSION,
                 video_id=task_id,
             )
-            self.repository.transition(task_id, "completed", storage_id=stored.video_id)
+            try:
+                self.repository.transition(
+                    task_id, "completed", storage_id=stored.video_id
+                )
+            except Exception:
+                self._remove_storage_directory(stored.directory)
+                raise
         except Exception as error:
-            self.repository.transition(task_id, "failed", error_message=clean_error(error))
+            try:
+                self.repository.transition(
+                    task_id, "failed", error_message=clean_error(error)
+                )
+            except Exception as status_error:
+                raise RuntimeError("task status could not be updated") from status_error
         task = self.repository.get(task_id)
         if task is None:
             raise RuntimeError("created task disappeared")
         return task
+
+    def search_task(
+        self,
+        task_id: str,
+        query_image: bytes,
+        *,
+        top_k: int,
+        min_similarity: Optional[float],
+    ) -> list[Dict[str, Any]]:
+        if not SAFE_ID.fullmatch(task_id):
+            raise StorageError("invalid task identifier")
+        if len(query_image) > MAX_QUERY_IMAGE_SIZE:
+            raise StorageError("query image exceeds the size limit")
+        if self.encryption_key is None or self.mac_key is None:
+            raise StorageError("encryption configuration is unavailable")
+        task = self.repository.get(task_id)
+        if task is None:
+            raise KeyError(task_id)
+        if task["status"] != "completed" or not task.get("storage_id"):
+            raise StorageError("video task is not completed")
+        storage_id = task["storage_id"]
+        if not isinstance(storage_id, str) or not SAFE_ID.fullmatch(storage_id):
+            raise StorageError("stored video identifier is invalid")
+        storage_directory = self.storage_root / storage_id
+        if not storage_directory.is_dir():
+            raise StorageError("stored video is unavailable")
+
+        image_array = np.frombuffer(query_image, dtype=np.uint8)
+        image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+        if image is None:
+            raise ValueError("query file is not a readable image")
+        yunet_model = self._path_from_env("FACECHECK_YUNET_MODEL")
+        sface_model = self._path_from_env("FACECHECK_SFACE_MODEL")
+        if yunet_model is None or sface_model is None:
+            raise StorageError("face model configuration is unavailable")
+        detection_config = FaceDetectionConfig(
+            model_path=yunet_model,
+            frame_interval_seconds=float(
+                os.getenv("FACECHECK_SEARCH_INTERVAL", "1.0")
+            ),
+        )
+        embedding_config = SFaceConfig(model_path=sface_model)
+        detector = load_yunet_detector(detection_config)
+        detector.setInputSize((image.shape[1], image.shape[0]))
+        _, raw_faces = detector.detect(image)
+        if raw_faces is None or len(raw_faces) == 0:
+            raise ValueError("no face found in query image")
+        face = np.asarray(raw_faces[0], dtype=np.float32)
+        if face.ndim != 1 or face.shape[0] < 15:
+            raise ValueError("face detector returned invalid query data")
+        detection = FaceDetection(
+            frame_index=0,
+            timestamp_seconds=0.0,
+            video_width=image.shape[1],
+            video_height=image.shape[0],
+            x=float(face[0]),
+            y=float(face[1]),
+            width=float(face[2]),
+            height=float(face[3]),
+            confidence=float(face[14]),
+            landmarks=tuple(
+                (float(face[index]), float(face[index + 1]))
+                for index in range(4, 14, 2)
+            ),
+        )
+        query_vector = extract_embedding(
+            image, detection, embedding_config
+        ).vector
+        config = FaceSearchConfig(
+            detection=detection_config,
+            embedding=embedding_config,
+            top_k=top_k,
+            min_similarity=min_similarity,
+        )
+        temporary_root = self.storage_root.parent / "search-temp"
+        temporary_root.mkdir(parents=True, exist_ok=True)
+        results = search_encrypted_video(
+            storage_directory,
+            query_vector,
+            config,
+            self.encryption_key,
+            self.mac_key,
+            temp_root=temporary_root,
+        )
+        return [
+            {
+                "candidate_id": result.candidate_id,
+                "frame_index": result.frame_index,
+                "timestamp_seconds": result.timestamp_seconds,
+                "similarity": result.similarity,
+            }
+            for result in results
+        ]

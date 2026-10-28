@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from .api import create_router
 from .database import TaskRepository
@@ -40,6 +41,9 @@ def create_app(
         return {"status": "ok"}
 
     application.include_router(create_router(repository, service))
+    frontend = Path(__file__).resolve().parents[2] / "frontend"
+    if frontend.is_dir():
+        application.mount("/", StaticFiles(directory=frontend, html=True), name="frontend")
     return application
 
 

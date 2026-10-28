@@ -8,7 +8,13 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, ConfigDict
 
 from .database import TaskRepository
-from .service import MAX_UPLOAD_SIZE, VideoTaskService
+from .service import (
+    MAX_QUERY_IMAGE_SIZE,
+    MAX_UPLOAD_SIZE,
+    VideoTaskService,
+    clean_error,
+)
+from .storage import StorageError
 
 
 class TaskResponse(BaseModel):
@@ -29,6 +35,20 @@ class TaskListResponse(BaseModel):
     limit: int
     offset: int
     total: int
+
+
+class FaceSearchResultResponse(BaseModel):
+    candidate_id: str
+    frame_index: int
+    timestamp_seconds: float
+    similarity: float
+
+
+class FaceSearchResponse(BaseModel):
+    task_id: str
+    status: str
+    similarity_note: str
+    results: list[FaceSearchResultResponse]
 
 
 def create_router(repository: TaskRepository, service: VideoTaskService) -> APIRouter:
@@ -79,5 +99,55 @@ def create_router(repository: TaskRepository, service: VideoTaskService) -> APIR
         return TaskListResponse(
             items=items, limit=limit, offset=offset, total=repository.count()
         )
+
+    @router.get("/videos", response_model=TaskListResponse)
+    def list_videos(
+        limit: int = Query(default=20, ge=1, le=100),
+        offset: int = Query(default=0, ge=0),
+    ) -> TaskListResponse:
+        items = [TaskResponse.model_validate(item) for item in repository.list(limit, offset)]
+        return TaskListResponse(
+            items=items, limit=limit, offset=offset, total=repository.count()
+        )
+
+    @router.post(
+        "/videos/{task_id}/search",
+        response_model=FaceSearchResponse,
+    )
+    async def search_video(
+        task_id: str,
+        query_image: UploadFile = File(...),
+        top_k: int = Query(default=10, ge=1, le=100),
+        min_similarity: Optional[float] = Query(default=None, ge=-1, le=1),
+    ) -> FaceSearchResponse:
+        try:
+            data = await query_image.read(MAX_QUERY_IMAGE_SIZE + 1)
+            if len(data) > MAX_QUERY_IMAGE_SIZE:
+                raise HTTPException(status_code=413, detail="query image is too large")
+            results = service.search_task(
+                task_id,
+                data,
+                top_k=top_k,
+                min_similarity=min_similarity,
+            )
+            task = repository.get(task_id)
+            if task is None:
+                raise HTTPException(status_code=404, detail="task not found")
+            return FaceSearchResponse(
+                task_id=task_id,
+                status=task["status"],
+                similarity_note="相似度是向量间的数学相似度，不是身份确认概率。",
+                results=[FaceSearchResultResponse.model_validate(item) for item in results],
+            )
+        except HTTPException:
+            raise
+        except KeyError:
+            raise HTTPException(status_code=404, detail="task not found")
+        except (ValueError, StorageError) as error:
+            raise HTTPException(status_code=400, detail=clean_error(error))
+        except Exception as error:
+            raise HTTPException(status_code=500, detail="face search failed") from error
+        finally:
+            await query_image.close()
 
     return router

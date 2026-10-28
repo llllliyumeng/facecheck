@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Facecheck 隐私保护原型</title>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; background: #f3f6fb; color: #172033; }
+    header { background: #173b6d; color: #fff; padding: 28px max(20px, calc((100% - 1100px) / 2)); }
+    main { max-width: 1100px; margin: 24px auto; padding: 0 20px 48px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 18px; }
+    .card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 18px #18345c12; }
+    h1, h2 { margin-top: 0; } h1 { margin-bottom: 6px; font-size: 28px; }
+    label { display: block; margin: 12px 0 6px; font-weight: 600; }
+    input, select, button { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #c9d2e3; border-radius: 7px; font: inherit; }
+    button { margin-top: 14px; background: #1769aa; color: white; border: 0; cursor: pointer; font-weight: 600; }
+    button:disabled { opacity: .55; cursor: wait; }
+    .status { padding: 9px 12px; border-radius: 7px; background: #eef4fb; margin: 10px 0; }
+    .error { background: #fff0f0; color: #9c2525; } .success { background: #effaf2; color: #24733b; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; } th, td { padding: 8px; border-bottom: 1px solid #e8edf5; text-align: left; }
+    .muted { color: #65748b; font-size: 14px; line-height: 1.6; }
+    code { background: #eef2f8; padding: 2px 5px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+<header><h1>Facecheck</h1><div>基于 SM2/SM4 的人像视频存储、完整性保护与授权检索课程原型</div></header>
+<main>
+  <div id="health" class="status">正在检查后端...</div>
+  <div class="grid">
+    <section class="card">
+      <h2>上传授权视频</h2>
+      <p class="muted">视频会由服务端验证、分块加密并保存。这里只适用于本机授权测试素材。</p>
+      <input id="video" type="file" accept="video/*">
+      <button id="uploadBtn">上传并处理</button>
+      <div id="uploadStatus" class="status">等待上传</div>
+    </section>
+    <section class="card">
+      <h2>授权图片检索</h2>
+      <p class="muted">查询图片只在本次请求内处理，不保存 embedding。相似度不是身份确认概率。</p>
+      <label for="task">已完成视频任务</label>
+      <select id="task"><option value="">请先刷新视频列表</option></select>
+      <label for="query">授权查询图片</label>
+      <input id="query" type="file" accept="image/*">
+      <label for="topK">返回数量</label>
+      <input id="topK" type="number" min="1" max="100" value="10">
+      <button id="searchBtn">开始检索</button>
+      <div id="searchStatus" class="status">等待检索</div>
+    </section>
+  </div>
+  <section class="card" style="margin-top:18px">
+    <h2>视频与任务</h2>
+    <button id="refreshBtn">刷新列表</button>
+    <div id="tasks" class="muted">暂无数据</div>
+  </section>
+  <section class="card" style="margin-top:18px">
+    <h2>检索结果</h2>
+    <div id="results" class="muted">暂无结果</div>
+  </section>
+  <section class="card" style="margin-top:18px">
+    <h2>安全边界</h2>
+    <p class="muted">本服务默认用于 127.0.0.1 本机演示，当前没有用户认证和多租户授权。视频分片使用 SM4-CBC + HMAC-SM3，恢复前验证 MAC 和 SHA-256。manifest 当前只有结构校验，没有独立签名。不要在公网部署，不要上传未授权的人脸数据。</p>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+function show(id, text, kind = '') { $(id).textContent = text; $(id).className = 'status ' + kind; }
+async function api(url, options = {}) {
+  const response = await fetch(url, options);
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.detail || `请求失败 (${response.status})`);
+  return body;
+}
+async function refresh() {
+  const data = await api('/api/v1/videos?limit=100&offset=0');
+  $('task').innerHTML = '<option value="">请选择已完成任务</option>';
+  data.items.filter(item => item.status === 'completed').forEach(item => {
+    const option = document.createElement('option');
+    option.value = item.task_id;
+    option.textContent = `${item.task_id.slice(0, 12)} · ${item.original_filename}`;
+    $('task').appendChild(option);
+  });
+  if (!data.items.length) { $('tasks').textContent = '暂无任务'; return; }
+  $('tasks').innerHTML = `<table><tr><th>任务 ID</th><th>文件名</th><th>状态</th><th>大小</th></tr>${data.items.map(item => `<tr><td><code>${item.task_id.slice(0, 12)}</code></td><td>${item.original_filename}</td><td>${item.status}</td><td>${item.source_size} bytes</td></tr>`).join('')}</table>`;
+}
+async function checkHealth() {
+  try { await api('/health'); show('health', '后端运行正常 · 本机演示模式', 'success'); } catch (e) { show('health', e.message, 'error'); }
+}
+$('uploadBtn').onclick = async () => {
+  const file = $('video').files[0]; if (!file) return show('uploadStatus', '请选择视频文件', 'error');
+  const form = new FormData(); form.append('file', file); $('uploadBtn').disabled = true; show('uploadStatus', '正在上传和加密...');
+  try { const task = await api('/api/v1/videos', { method: 'POST', body: form }); show('uploadStatus', `任务 ${task.task_id}：${task.status}`, task.status === 'completed' ? 'success' : 'error'); await refresh(); }
+  catch (e) { show('uploadStatus', e.message, 'error'); } finally { $('uploadBtn').disabled = false; }
+};
+$('searchBtn').onclick = async () => {
+  const task = $('task').value, file = $('query').files[0]; if (!task || !file) return show('searchStatus', '请选择已完成任务和授权图片', 'error');
+  const form = new FormData(); form.append('query_image', file); $('searchBtn').disabled = true; show('searchStatus', '正在恢复、检测和检索...');
+  try { const data = await api(`/api/v1/videos/${task}/search?top_k=${encodeURIComponent($('topK').value)}`, { method: 'POST', body: form }); show('searchStatus', `完成：${data.results.length} 条结果。${data.similarity_note}`, 'success'); renderResults(data.results); }
+  catch (e) { show('searchStatus', e.message, 'error'); $('results').textContent = '没有可展示的结果'; } finally { $('searchBtn').disabled = false; }
+};
+function renderResults(rows) { if (!rows.length) return $('results').textContent = '没有达到条件的候选'; $('results').innerHTML = `<table><tr><th>候选</th><th>帧号</th><th>时间</th><th>相似度</th></tr>${rows.map(row => `<tr><td><code>${row.candidate_id}</code></td><td>${row.frame_index}</td><td>${row.timestamp_seconds.toFixed(3)} s</td><td>${row.similarity.toFixed(6)}</td></tr>`).join('')}</table>`; }
+$('refreshBtn').onclick = () => refresh().catch(e => show('tasks', e.message, 'error'));
+checkHealth(); refresh().catch(e => show('tasks', e.message, 'error'));
+</script>
+</body>
+</html>

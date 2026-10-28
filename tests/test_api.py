@@ -109,3 +109,78 @@ def test_missing_key_configuration_creates_failed_task_without_secrets(tmp_path:
     assert body["status"] == "failed"
     assert "configuration" in body["error_message"]
     assert "0123456789abcdef" not in json.dumps(body)
+
+
+def test_video_listing_and_search_response_contract(tmp_path: Path, monkeypatch) -> None:
+    client = make_client(tmp_path)
+    monkeypatch.setattr(
+        "facecheck.service.VideoTaskService.search_task",
+        lambda self, task_id, query_image, *, top_k, min_similarity: [
+            {
+                "candidate_id": "frame-0-face-0",
+                "frame_index": 0,
+                "timestamp_seconds": 0.0,
+                "similarity": 1.0,
+            }
+        ],
+    )
+    response = client.get("/api/v1/videos")
+    assert response.status_code == 200
+    assert response.json()["items"] == []
+
+    missing = client.post(
+        "/api/v1/videos/not-a-real-task/search",
+        files={"query_image": ("query.png", b"not-an-image", "image/png")},
+    )
+    assert missing.status_code == 404
+
+
+def test_search_rejects_oversize_query_image(tmp_path: Path) -> None:
+    client = make_client(tmp_path)
+    response = client.post(
+        "/api/v1/videos/safe-task/search",
+        files={
+            "query_image": (
+                "query.png",
+                b"x" * (10 * 1024 * 1024 + 1),
+                "image/png",
+            )
+        },
+    )
+    assert response.status_code == 413
+
+
+def test_upload_sanitizes_filename_and_failed_storage_has_no_orphan(
+    tmp_path: Path, monkeypatch
+) -> None:
+    client = make_client(tmp_path)
+    import cv2
+    import numpy as np
+
+    source = tmp_path / "source.mp4"
+    writer = cv2.VideoWriter(str(source), cv2.VideoWriter_fourcc(*"mp4v"), 4, (16, 16))
+    assert writer.isOpened()
+    writer.write(np.zeros((16, 16, 3), dtype=np.uint8))
+    writer.release()
+
+    from facecheck.database import TaskRepository
+
+    original_transition = TaskRepository.transition
+
+    def fail_completion(self, task_id, status, **kwargs):
+        if status == "completed":
+            raise OSError("/private/internal/storage/path")
+        return original_transition(self, task_id, status, **kwargs)
+
+    monkeypatch.setattr(TaskRepository, "transition", fail_completion)
+    with source.open("rb") as video:
+        response = client.post(
+            "/api/v1/videos",
+            files={"file": ("../../秘密 video.mp4", video, "video/mp4")},
+        )
+
+    assert response.status_code == 201
+    assert response.json()["status"] == "failed"
+    assert "internal" not in response.text
+    assert not list((tmp_path / "storage").glob("*"))
+    assert not list(tmp_path.glob("facecheck-upload-*"))
