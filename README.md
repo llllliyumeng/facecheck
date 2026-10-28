@@ -44,7 +44,7 @@ facecheck/
 - Python 3.9 或更高版本；
 - [uv](https://docs.astral.sh/uv/)（推荐，但不是必须）；
 - macOS Apple Silicon、macOS Intel 或 Windows 10/11；
-- 可用的 YuNet 和 SFace ONNX 模型；
+- 项目 `models/` 目录中已提供 YuNet 和 SFace ONNX 模型；
 - 仅使用明确授权的本地测试素材。
 
 ### 方式一：使用 uv（推荐）
@@ -111,14 +111,14 @@ uv run python ...        → python ...
 
 ## 模型准备
 
-将以下模型放入项目的 `models/` 目录：
+当前仓库已包含以下模型，队友克隆项目后通常不需要另行下载：
 
 ```text
 models/face_detection_yunet_2023mar.onnx
 models/face_recognition_sface_2021dec.onnx
 ```
 
-模型不会由项目自动下载，也不应提交到 Git。模型来源、许可证和校验值应以实际下载页面或发布包为准；课程报告中请记录下载来源和文件 SHA-256。
+模型来源、许可证说明和 SHA-256 校验值见 [models/README.md](models/README.md)。课程报告中应保留模型来源和许可证信息。
 
 如果模型在其他目录，启动前设置：
 
@@ -368,7 +368,7 @@ data/storage/
 
 - `.venv/`、`__pycache__/`；
 - `data/`、SQLite 数据库和加密存储目录；
-- `models/*.onnx`；
+- 未经核验的额外模型文件；
 - 授权测试视频、查询图片和恢复出的明文；
 - `.env`、真实密钥、证书和临时文件。
 

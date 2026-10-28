@@ -19,7 +19,8 @@ env/
 *.key
 *.crt
 secrets/
-models/
+# Model files are tracked because this course repository distributes the
+# verified YuNet and SFace assets. Do not add unrelated model or data files.
 authorized-sample.mp4
 query-frame*.png
 
