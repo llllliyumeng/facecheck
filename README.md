@@ -2,7 +2,7 @@
 
 基于 SM2/SM4 的云端人像视频存储、传输与检索隐私保护系统课程实践项目。
 
-当前已完成阶段一至阶段三：项目初始化、密码学基础能力验证，以及本地视频读取、抽帧、分片、加密存储和恢复验证。人脸处理、数据库和云端上传功能将在后续阶段单独实现和验收。
+当前已完成阶段一至阶段四：项目初始化、密码学基础能力验证、本地视频读取/抽帧/分片/加密存储，以及基于 SQLite 和 FastAPI 的本机任务服务。人脸处理、权限认证、数据库扩展和云端上传功能将在后续阶段单独实现和验收。
 
 ## 环境要求
 
@@ -52,6 +52,55 @@ uv run uvicorn facecheck.main:app --reload
 - 健康检查：http://127.0.0.1:8000/health
 - OpenAPI 文档：http://127.0.0.1:8000/docs
 
+阶段四服务默认只绑定本机开发地址，使用环境变量配置密钥和数据目录：
+
+```bash
+export FACECHECK_SM4_KEY='在本机安全注入的16字节测试密钥'
+export FACECHECK_MAC_KEY='在本机安全注入的独立MAC密钥'
+export FACECHECK_DATA_ROOT="$PWD/data"
+uv run uvicorn facecheck.main:app --reload
+```
+
+`FACECHECK_SM4_KEY` 必须编码后为 16 字节；MAC 密钥不能为空。密钥不会写入 SQLite、清单、日志或 API 响应。未配置密钥时，上传任务会记录为 `failed`，不会通过硬编码密钥绕过配置。
+
+阶段四默认数据位置：
+
+```text
+data/facecheck.sqlite3
+data/storage/<task_id>/
+```
+
+## 阶段四 API
+
+上传授权测试视频：
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/videos \
+  -F "file=@authorized-sample.mp4"
+```
+
+响应只包含任务标识、状态、文件大小、非敏感元数据和受控 `storage_id`，不返回本机绝对路径或密钥：
+
+```json
+{
+  "task_id": "generated-task-id",
+  "original_filename": "authorized-sample.mp4",
+  "source_size": 12345,
+  "status": "completed",
+  "storage_id": "generated-task-id",
+  "error_message": null
+}
+```
+
+查询任务：
+
+```bash
+curl http://127.0.0.1:8000/api/v1/tasks/<task_id>
+curl "http://127.0.0.1:8000/api/v1/tasks?limit=20&offset=0"
+```
+
+上传成功表示请求已被接受并创建任务；只有 `status` 为 `completed` 才表示视频已完成本地加密存储。当前实现同步处理任务，状态仍显式经历 `pending`、`processing`、`completed` 或 `failed`，以便后续替换为后台任务队列。
+
 健康检查预期返回：
 
 ```json
@@ -94,10 +143,14 @@ facecheck/
 │       ├── __init__.py
 │       ├── chunks.py
 │       ├── crypto.py
+│       ├── api.py
+│       ├── database.py
 │       ├── main.py
+│       ├── service.py
 │       ├── storage.py
 │       └── video.py
 ├── tests/
+│   ├── test_api.py
 │   ├── test_crypto.py
 │   ├── test_health.py
 │   └── test_video_pipeline.py
@@ -185,8 +238,10 @@ restore_encrypted_video(
 
 ## 阶段一范围与限制
 
-- 当前只提供最小 HTTP 服务、健康检查和本地处理 API；尚未把视频链路接入 FastAPI。
-- 当前不包含人脸识别、检索、权限控制、数据库或云端上传。
+- 当前服务提供本地 HTTP API、SQLite 任务记录和操作审计；尚未实现身份认证、用户授权或多租户隔离。
+- 当前仅适合本机可信测试环境，不能声称具备生产级权限控制、密钥托管或云端安全能力。
+- 当前不包含人脸识别、检索、云端上传或复杂后台队列。
+- 上传明文只保存在临时文件中，处理成功或失败后都会清理；SQLite 只保存任务元数据，不保存密钥。
 - 当前密码学代码仅用于课程实践和测试向量验证，不应直接用于生产密钥管理。
 - 当前 SM2 测试使用固定的公开示例密钥，不能用于真实数据。
 - 仅使用已授权的测试数据；不要把密钥、令牌、个人数据或本地数据库提交到 Git。

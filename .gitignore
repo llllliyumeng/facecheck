@@ -24,10 +24,11 @@ secrets/
 data/
 uploads/
 storage/
+data/
+*.partial
 *.db
 *.sqlite
 *.sqlite3
 
 # macOS
 .DS_Store
-
