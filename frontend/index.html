@@ -102,6 +102,18 @@
     .result-item strong { display: block; margin-bottom: 4px; }
     .result-score { color: var(--blue); font-size: 18px; font-weight: 750; }
     .notice { padding: 14px 16px; border-left: 3px solid #4f91bd; border-radius: 8px; background: #eef6fb; color: #315474; font-size: 13px; line-height: 1.7; }
+    .filter-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+    .filter-row > div { min-width: 150px; flex: 1; }
+    .bar-chart { display: grid; gap: 12px; margin-top: 18px; }
+    .bar-row { display: grid; grid-template-columns: 150px 1fr 70px; gap: 10px; align-items: center; font-size: 12px; }
+    .bar-track { height: 10px; overflow: hidden; border-radius: 99px; background: #e8eef5; }
+    .bar-fill { height: 100%; border-radius: inherit; background: #2f7fb3; }
+    .timeline { display: grid; gap: 0; margin-top: 16px; }
+    .timeline-item { position: relative; padding: 0 0 16px 27px; border-left: 2px solid #d6e2ed; }
+    .timeline-item::before { position: absolute; top: 2px; left: -6px; width: 9px; height: 9px; border: 2px solid #fff; border-radius: 50%; background: #4b91bd; box-shadow: 0 0 0 1px #4b91bd; content: ""; }
+    .timeline-item strong { display: block; font-size: 13px; }
+    .timeline-item span { color: var(--muted); font-size: 12px; }
+    .matrix td:first-child { font-weight: 650; }
     .refreshing { color: var(--muted); font-size: 12px; }
     @media (max-width: 960px) {
       .sidebar { width: 204px; }
@@ -114,7 +126,7 @@
       .sidebar { position: static; width: 100%; height: auto; max-height: none; overflow: visible; padding: 14px; }
       .content { margin-left: 0; }
       .brand { padding: 0 8px 14px; }
-      .nav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      .nav { grid-template-columns: repeat(6, minmax(0, 1fr)); }
       .nav button { padding: 9px 4px; text-align: center; font-size: 11px; }
       .nav-icon { display: block; width: auto; margin-bottom: 2px; }
       .side-note { display: none; }
@@ -141,6 +153,7 @@
       <button data-view="videos"><span class="nav-icon">▣</span>视频管理</button>
       <button data-view="search"><span class="nav-icon">⌕</span>人脸检索</button>
       <button data-view="security"><span class="nav-icon">◇</span>安全中心</button>
+      <button data-view="experiments"><span class="nav-icon">▥</span>实验分析</button>
       <button data-view="audit"><span class="nav-icon">≡</span>审计日志</button>
     </nav>
     <div class="side-note">本地演示模式<br>服务默认绑定 127.0.0.1<br>仅处理获得授权的测试素材</div>
@@ -167,11 +180,13 @@
           <div class="form-grid"><div><label for="video">视频文件</label><input id="video" type="file" accept="video/*"></div><div style="align-self:end"><button id="uploadBtn" class="button">上传并处理</button></div></div>
           <div id="uploadStatus" class="status">等待上传</div>
         </section>
-        <section class="card"><div class="toolbar"><div><h2>任务列表</h2><p id="videoCount" class="muted">正在加载...</p></div></div><div id="tasks"></div></section>
+        <section class="card"><div class="toolbar"><div><h2>任务列表</h2><p id="videoCount" class="muted">正在加载...</p></div></div>
+          <div class="filter-row" style="margin-bottom:18px"><div><label for="taskFilter">状态筛选</label><select id="taskFilter"><option value="">全部状态</option><option value="completed">已完成</option><option value="processing">处理中</option><option value="failed">失败</option><option value="pending">待处理</option></select></div><div><label for="taskSort">排序</label><select id="taskSort"><option value="created_desc">创建时间（新到旧）</option><option value="created_asc">创建时间（旧到新）</option><option value="size_desc">文件大小（大到小）</option></select></div></div>
+          <div id="tasks"></div></section>
       </section>
 
       <section id="view-search" class="view">
-        <div class="intro"><div><h2>人脸检索</h2><p>选择已完成的加密视频和授权查询图片，结果只返回受控候选编号、帧号、时间戳和数学相似度。</p></div></div>
+        <div class="intro"><div><h2>人脸检索</h2><p>选择已完成的加密视频和授权查询图片，结果只返回受控候选编号、帧号、时间戳和数学相似度。</p></div><button id="searchRefresh" class="button secondary">刷新视频状态</button></div>
         <div class="grid two-col">
           <section class="card">
             <h2>检索工作区</h2><p class="muted">查询图片只在本次请求内处理，不保存 embedding。相似度不是身份确认概率。</p>
@@ -183,6 +198,7 @@
           </section>
           <section class="card"><h2>检索结果</h2><p class="muted">完成检索后按需查看候选详情。</p><div id="results"><div class="empty">暂无结果</div></div></section>
         </div>
+        <section class="card" style="margin-top:18px"><div class="toolbar"><div><h2>可检索任务</h2><p class="muted">任务状态与视频管理保持同步；只有已完成且完整性已验证的任务可以发起检索。</p></div><button id="searchTaskRefresh" class="button secondary">刷新任务</button></div><div id="searchTasks"><div class="empty">正在加载任务</div></div></section>
       </section>
 
       <section id="view-security" class="view">
@@ -191,6 +207,49 @@
           <section class="card"><h2>当前安全状态</h2><div id="securityDetails"></div></section>
           <section class="card"><h2>安全边界</h2><div class="notice">当前服务默认用于 127.0.0.1 本机演示，没有身份认证、用户授权或多租户隔离。不要在公网部署，不要上传未授权的人脸数据。</div><div class="security-list"><div class="security-row"><strong>人脸特征</strong><span>仅内存处理，不写入数据库或 API 响应</span></div><div class="security-row"><strong>Manifest 来源认证</strong><span>尚未实现独立 HMAC/SM2 签名</span></div><div class="security-row"><strong>密钥轮换与撤销</strong><span>尚未实现自动轮换、撤销和迁移</span></div></div></section>
         </div>
+        <section class="card" style="margin-top:18px"><h2>安全能力矩阵</h2><div class="table-wrap"><table class="matrix"><thead><tr><th>能力</th><th>状态</th><th>实际说明</th></tr></thead><tbody>
+          <tr><td>视频分块加密</td><td><span class="badge success">已实现</span></td><td>SM4-CBC，每块独立随机 IV</td></tr>
+          <tr><td>分块完整性认证</td><td><span class="badge success">已实现</span></td><td>HMAC-SM3 在解密前验证，并绑定视频、序号和密钥版本</td></tr>
+          <tr><td>恢复后文件校验</td><td><span class="badge success">已实现</span></td><td>恢复临时文件通过大小和 SHA-256 校验后才发布</td></tr>
+          <tr><td>篡改与错误密钥拒绝</td><td><span class="badge success">有测试证据</span></td><td>密文篡改、错误密钥和缺失分片测试均拒绝</td></tr>
+          <tr><td>密钥轮换与撤销</td><td><span class="badge warning">未实现</span></td><td>只有运行时密钥和 key version 字段</td></tr>
+          <tr><td>用户身份与权限</td><td><span class="badge warning">未实现</span></td><td>仅限本机演示，无用户认证和多租户隔离</td></tr>
+          <tr><td>密文域人脸检索</td><td><span class="badge warning">未实现</span></td><td>当前流程是恢复并验证后，再在内存中做人脸检索</td></tr>
+        </tbody></table></div></section>
+      </section>
+
+      <section id="view-experiments" class="view">
+        <div class="intro"><div><h2>实验分析</h2><p>展示仓库中已记录的真实基准和当前 API 返回的阶段耗时。历史基准不是实时接口数据，也不构成性能承诺。</p></div></div>
+        <div class="notice" style="margin-bottom:18px">实验条件：授权视频 4,863,988 bytes（约 4.64 MiB）、1 MiB 分片、5 个分片、macOS Apple Silicon、Python 3.9.6、cryptography 42.0.8 / OpenSSL 3.2.2。结果来自 README 中已记录的可复现实验。</div>
+        <div class="grid summary-grid">
+          <div class="card"><div class="metric-label">优化后加密中位数</div><div class="metric-value">0.266 s</div><div class="metric-foot">3 次独立测量</div></div>
+          <div class="card"><div class="metric-label">优化后恢复中位数</div><div class="metric-value">0.266 s</div><div class="metric-foot">恢复后 SHA-256 一致</div></div>
+          <div class="card"><div class="metric-label">原始加密基线</div><div class="metric-value">约 57.5 s</div><div class="metric-foot">gmssl Python 实现</div></div>
+          <div class="card"><div class="metric-label">原始恢复基线</div><div class="metric-value">约 55.3 s</div><div class="metric-foot">同条件历史记录</div></div>
+        </div>
+        <div class="grid two-col">
+          <section class="card"><h2>端到端阶段耗时</h2><p class="muted">来自最近一次真实 API 验收；阶段计时存在嵌套关系，不能简单相加。</p><div class="bar-chart">
+            <div class="bar-row"><span>恢复与认证</span><div class="bar-track"><div class="bar-fill" style="width:45%"></div></div><strong>0.268 s</strong></div>
+            <div class="bar-row"><span>视频解码/抽帧</span><div class="bar-track"><div class="bar-fill" style="width:69%"></div></div><strong>0.412 s</strong></div>
+            <div class="bar-row"><span>YuNet 检测</span><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><strong>0.599 s</strong></div>
+            <div class="bar-row"><span>SFace 特征</span><div class="bar-track"><div class="bar-fill" style="width:43%"></div></div><strong>0.255 s</strong></div>
+            <div class="bar-row"><span>检索总处理</span><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><strong>1.698 s</strong></div>
+          </div></section>
+          <section class="card"><h2>加速前后对比</h2><p class="muted">相同授权视频、分片大小和临时测试密钥；旧版数据为历史基线，本轮未切换旧实现重新运行。</p><div class="bar-chart">
+            <div class="bar-row"><span>加密：原始</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:#c7772c"></div></div><strong>57.5 s</strong></div>
+            <div class="bar-row"><span>加密：优化后</span><div class="bar-track"><div class="bar-fill" style="width:1%;"></div></div><strong>0.266 s</strong></div>
+            <div class="bar-row"><span>恢复：原始</span><div class="bar-track"><div class="bar-fill" style="width:96%;background:#c7772c"></div></div><strong>55.3 s</strong></div>
+            <div class="bar-row"><span>恢复：优化后</span><div class="bar-track"><div class="bar-fill" style="width:1%;"></div></div><strong>0.266 s</strong></div>
+          </div></section>
+        </div>
+        <section class="card" style="margin-top:18px"><h2>安全与兼容性验证</h2><p class="muted">测试结果来自当前 pytest 套件，不在页面中重新计算或虚构通过率。</p><div class="table-wrap"><table class="matrix"><thead><tr><th>验证项</th><th>当前结果</th><th>证据范围</th></tr></thead><tbody>
+          <tr><td>正常加密与恢复</td><td><span class="badge success">已通过</span></td><td>存储恢复测试</td></tr>
+          <tr><td>错误密钥 / MAC 密钥</td><td><span class="badge success">已拒绝</span></td><td>密码学和存储测试</td></tr>
+          <tr><td>密文篡改 / 缺失分片</td><td><span class="badge success">已拒绝</span></td><td>分片完整性测试</td></tr>
+          <tr><td>旧 gmssl envelope 兼容</td><td><span class="badge success">已通过</span></td><td>后端互操作测试</td></tr>
+          <tr><td>HMAC-SM3 边界输入</td><td><span class="badge success">已通过</span></td><td>空消息、分组边界、超长密钥</td></tr>
+          <tr><td>完整自动化测试</td><td><span class="badge success">66 passed / 2 skipped</span></td><td>当前本地 pytest 运行结果</td></tr>
+        </tbody></table></div></section>
       </section>
 
       <section id="view-audit" class="view">
@@ -207,10 +266,13 @@ const viewMeta = {
   videos: ['视频管理', '授权视频上传、加密处理与任务详情'],
   search: ['人脸检索', '在内存中执行授权视频相似度检索'],
   security: ['安全中心', '密码学能力、完整性状态与安全边界'],
+  experiments: ['实验分析', '性能基准、端到端耗时与兼容性验证'],
   audit: ['审计日志', '查看真实操作记录与失败摘要']
 };
 let tasks = [];
 let currentAuditFilter = '';
+let lastSearchTaskId = '';
+let lastSearchStatus = '';
 
 function escapeHTML(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -246,30 +308,79 @@ function renderError(id, error) { $(id).innerHTML = `<div class="status error">$
 function taskDetails(item) {
   const metrics = item.processing_metrics || {};
   const entries = [
-    ['任务 ID', `<code>${escapeHTML(item.task_id)}</code>`], ['创建时间', escapeHTML(item.created_at)],
+    ['任务 ID', `<code>${escapeHTML(item.task_id)}</code> <button class="button secondary copy-task" data-task-id="${escapeHTML(item.task_id)}" style="padding:3px 7px">复制</button>`], ['创建时间', escapeHTML(item.created_at)],
     ['更新时间', escapeHTML(item.updated_at)], ['存储 ID', item.storage_id ? `<code>${escapeHTML(item.storage_id)}</code>` : '-'],
     ['加密算法', escapeHTML(item.encryption_algorithm || '-')], ['认证算法', escapeHTML(item.mac_algorithm || '-')],
     ['完整性', escapeHTML(item.integrity_status || '-')], ['密钥版本', escapeHTML(item.key_version || '-')],
     ['分片数量', escapeHTML(item.chunk_count ?? '-')], ['总耗时', metrics.total_seconds != null ? `${escapeHTML(metrics.total_seconds)} s` : '-'],
     ['错误摘要', item.error_message ? escapeHTML(item.error_message) : '-']
   ];
-  return `<dl class="detail-grid">${entries.map(([key, value]) => `<div class="detail-item"><dt>${key}</dt><dd>${value}</dd></div>`).join('')}</dl>`;
+  const completed = item.status === 'completed';
+  const failed = item.status === 'failed';
+  const searchIsCurrent = item.task_id === lastSearchTaskId;
+  const searchState = searchIsCurrent ? lastSearchStatus : '';
+  const stage = (label, state) => `<div class="timeline-item"><strong>${label}</strong><span>${state}</span></div>`;
+  const timeline = [
+    stage('文件接收', item.created_at ? '已记录' : '未执行'),
+    stage('分块与加密认证', metrics.encryption_storage_seconds != null ? '已完成' : failed ? '失败或未完成' : '未执行'),
+    stage('加密数据存储', item.storage_id ? '已完成' : failed ? '失败或未完成' : '未执行'),
+    stage('完整性验证与恢复', searchState === 'processing' ? '处理中' : searchState === 'completed' ? '已完成' : searchState === 'failed' ? '失败' : completed ? '检索时按需执行；等待检索' : '未执行'),
+    stage('人脸检测与检索', searchState === 'processing' ? '处理中' : searchState === 'completed' ? '已完成' : searchState === 'failed' ? '失败' : '未执行')
+  ].join('');
+  const note = searchIsCurrent ? '<p class="muted" style="margin-top:12px">检索状态来自当前浏览器会话，上传任务接口不会持久化检索阶段。</p>' : '';
+  return `<dl class="detail-grid">${entries.map(([key, value]) => `<div class="detail-item"><dt>${key}</dt><dd>${value}</dd></div>`).join('')}</dl><h3 style="margin-top:20px">处理时间线</h3><div class="timeline">${timeline}</div>${note}`;
 }
 function renderTaskTable(items, targetId, compact = false) {
   if (!items.length) { $(targetId).innerHTML = '<div class="empty">暂无任务</div>'; return; }
   const rows = items.map((item, index) => `<tr><td><button class="button secondary task-toggle" data-index="${index}" style="padding:5px 8px">详情</button></td><td><code>${escapeHTML(item.task_id.slice(0, 12))}</code></td><td>${escapeHTML(item.original_filename)}</td><td>${statusBadge(item.status)}</td><td>${escapeHTML(item.encryption_algorithm || '未完成')} / ${escapeHTML(item.integrity_status || '未验证')}</td><td>${formatBytes(item.source_size)}</td></tr><tr class="details-row"><td colspan="6"><div class="details">${taskDetails(item)}</div></td></tr>`).join('');
   $(targetId).innerHTML = `<div class="table-wrap"><table><thead><tr><th></th><th>任务 ID</th><th>文件名</th><th>状态</th><th>加密 / 完整性</th><th>大小</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   $(targetId).querySelectorAll('.task-toggle').forEach(button => button.onclick = () => button.closest('tr').nextElementSibling.querySelector('.details').classList.toggle('open'));
+  $(targetId).querySelectorAll('.copy-task').forEach(button => button.onclick = async () => {
+    try { await navigator.clipboard.writeText(button.dataset.taskId); button.textContent = '已复制'; }
+    catch (_) { button.textContent = '复制失败'; }
+  });
+}
+function renderSearchTaskList() {
+  const target = $('searchTasks');
+  if (!tasks.length) {
+    target.innerHTML = '<div class="empty">暂无任务，请先在视频管理中上传授权视频</div>';
+    return;
+  }
+  const rows = tasks.map(item => {
+    const selectable = item.status === 'completed' && item.storage_id;
+    return `<tr><td><code>${escapeHTML(item.task_id.slice(0, 12))}</code></td><td>${escapeHTML(item.original_filename)}</td><td>${statusBadge(item.status)}</td><td>${escapeHTML(item.encryption_algorithm || '未完成')} / ${escapeHTML(item.integrity_status || '未验证')}</td><td>${selectable ? `<button class="button secondary choose-search-task" data-task-id="${escapeHTML(item.task_id)}" style="padding:5px 8px">选择检索</button>` : '<span class="muted">不可检索</span>'}</td></tr>`;
+  }).join('');
+  target.innerHTML = `<div class="table-wrap"><table><thead><tr><th>任务 ID</th><th>文件名</th><th>状态</th><th>加密 / 完整性</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  target.querySelectorAll('.choose-search-task').forEach(button => button.onclick = () => {
+    $('task').value = button.dataset.taskId;
+    $('searchStatus').textContent = '已选择任务，请上传授权查询图片后开始检索';
+    $('searchStatus').className = 'status';
+    $('task').scrollIntoView({behavior: 'smooth', block: 'center'});
+  });
 }
 async function refreshTasks() {
   const data = await api('/api/v1/videos?limit=100&offset=0'); tasks = data.items || [];
   $('videoCount').textContent = `共 ${data.total} 个任务 · 页面显示 ${tasks.length} 个`;
-  renderTaskTable(tasks, 'tasks');
+  renderFilteredTasks();
   $('overviewTasks').innerHTML = tasks.length ? `<div class="table-wrap"><table><thead><tr><th>文件</th><th>状态</th><th>更新时间</th></tr></thead><tbody>${tasks.slice(0, 5).map(item => `<tr><td>${escapeHTML(item.original_filename)}</td><td>${statusBadge(item.status)}</td><td>${escapeHTML(item.updated_at)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">暂无任务</div>';
+  const selectedTask = $('task').value;
   const completed = tasks.filter(item => item.status === 'completed');
-  $('task').innerHTML = `<option value="">请选择已完成任务</option>${completed.map(item => `<option value="${escapeHTML(item.task_id)}">${escapeHTML(item.task_id.slice(0, 12))} · ${escapeHTML(item.original_filename)}</option>`).join('')}`;
+  $('task').innerHTML = `<option value="">${completed.length ? '请选择已完成任务' : '暂无已完成任务，请稍后刷新'}</option>${completed.map(item => `<option value="${escapeHTML(item.task_id)}">${escapeHTML(item.task_id.slice(0, 12))} · ${escapeHTML(item.original_filename)}</option>`).join('')}`;
+  if (completed.some(item => item.task_id === selectedTask)) $('task').value = selectedTask;
+  $('searchBtn').disabled = completed.length === 0;
+  renderSearchTaskList();
   const security = window.lastSecurity;
   renderMetrics(security, data);
+}
+function renderFilteredTasks() {
+  const status = $('taskFilter').value;
+  const sort = $('taskSort').value;
+  const filtered = tasks.filter(item => !status || item.status === status).slice().sort((left, right) => {
+    if (sort === 'size_desc') return Number(right.source_size) - Number(left.source_size);
+    const direction = sort === 'created_asc' ? 1 : -1;
+    return direction * String(left.created_at).localeCompare(String(right.created_at));
+  });
+  renderTaskTable(filtered, 'tasks');
 }
 function renderMetrics(summary, taskData) {
   const values = [
@@ -309,19 +420,28 @@ $('searchBtn').onclick = async () => {
   if (!task || !file) return showStatus('searchStatus', '请选择已完成任务和授权图片', 'error');
   if (!Number.isInteger(topK) || topK < 1 || topK > 100) return showStatus('searchStatus', '返回数量必须是 1 到 100 的整数', 'error');
   const form = new FormData(); form.append('query_image', file); $('searchBtn').disabled = true; showStatus('searchStatus', '正在恢复、校验、检测和检索，请稍候...');
-  try { const data = await api(`/api/v1/videos/${encodeURIComponent(task)}/search?top_k=${topK}`, {method: 'POST', body: form}); const seconds = data.timings?.total_seconds; showStatus('searchStatus', `完成：${data.results.length} 条结果${seconds != null ? `，处理耗时 ${seconds} 秒` : ''}。${data.similarity_note}`, 'success'); renderResults(data.results || []); await refreshSecurity(); await refreshAudit(); }
-  catch (error) { showStatus('searchStatus', error.message, 'error'); $('results').innerHTML = '<div class="empty">没有可展示的结果</div>'; } finally { $('searchBtn').disabled = false; }
+  lastSearchTaskId = task; lastSearchStatus = 'processing'; renderFilteredTasks();
+  try { const data = await api(`/api/v1/videos/${encodeURIComponent(task)}/search?top_k=${topK}`, {method: 'POST', body: form}); const seconds = data.timings?.total_seconds; lastSearchStatus = 'completed'; showStatus('searchStatus', `完成：${data.results.length} 条结果${seconds != null ? `，处理耗时 ${seconds} 秒` : ''}。${data.similarity_note}`, 'success'); renderResults(data.results || []); await refreshTasks(); await refreshSecurity(); await refreshAudit(); }
+  catch (error) { lastSearchStatus = 'failed'; showStatus('searchStatus', error.message, 'error'); $('results').innerHTML = '<div class="empty">没有可展示的结果</div>'; renderFilteredTasks(); await refreshTasks().catch(() => {}); } finally { $('searchBtn').disabled = false; }
 };
 function renderResults(rows) { if (!rows.length) { $('results').innerHTML = '<div class="empty">没有达到条件的候选</div>'; return; } $('results').innerHTML = `<div class="result-list">${rows.map(row => `<div class="result-item"><div><strong><code>${escapeHTML(row.candidate_id)}</code></strong><span class="muted">帧 ${escapeHTML(row.frame_index)} · ${Number(row.timestamp_seconds).toFixed(3)} 秒</span></div><div class="result-score">${Number(row.similarity).toFixed(6)}</div></div>`).join('')}</div>`; }
 document.querySelectorAll('.nav button').forEach(button => button.onclick = () => setView(button.dataset.view));
 document.querySelectorAll('[data-go]').forEach(button => button.onclick = () => setView(button.dataset.go));
 $('overviewRefresh').onclick = () => Promise.all([refreshTasks(), refreshSecurity(), refreshAudit(), checkHealth()]);
 $('videoRefresh').onclick = () => refreshTasks().catch(error => renderError('tasks', error));
+$('searchRefresh').onclick = () => refreshTasks().catch(error => showStatus('searchStatus', error.message, 'error'));
+$('searchTaskRefresh').onclick = () => refreshTasks().catch(error => showStatus('searchStatus', error.message, 'error'));
 $('securityRefresh').onclick = () => refreshSecurity().catch(error => renderError('securityDetails', error));
 $('auditRefresh').onclick = () => refreshAudit().catch(error => renderError('auditTable', error));
 $('auditFilter').onclick = () => { currentAuditFilter = $('auditTask').value.trim(); refreshAudit().catch(error => renderError('auditTable', error)); };
+['taskFilter', 'taskSort'].forEach(id => $(id).onchange = renderFilteredTasks);
 checkHealth();
 Promise.all([refreshTasks(), refreshSecurity(), refreshAudit()]).catch(error => renderError('overviewTasks', error));
+setInterval(() => {
+  if (tasks.some(item => item.status === 'processing' || item.status === 'pending')) {
+    refreshTasks().catch(() => {});
+  }
+}, 3000);
 </script>
 </body>
 </html>
