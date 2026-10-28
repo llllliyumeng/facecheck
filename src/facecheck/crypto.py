@@ -9,10 +9,18 @@ from __future__ import annotations
 
 import hmac
 import os
+import time
 from dataclasses import dataclass
+from typing import Dict, Optional
 
-from gmssl import sm2, sm3
-from gmssl.sm4 import CryptSM4, SM4_DECRYPT, SM4_ENCRYPT
+from gmssl import sm2
+
+from .crypto_backend import (
+    sm3_digest as _backend_sm3_digest,
+    sm3_hmac as _backend_sm3_hmac,
+    sm4_cbc_decrypt,
+    sm4_cbc_encrypt,
+)
 
 SM4_BLOCK_SIZE = 16
 SM4_KEY_SIZE = 16
@@ -29,18 +37,12 @@ SM2_PUBLIC_KEY = (
 
 def sm3_digest(data: bytes) -> bytes:
     """Return the SM3 digest of bytes."""
-    return bytes.fromhex(sm3.sm3_hash(list(data)))
+    return _backend_sm3_digest(data)
 
 
 def sm3_hmac(key: bytes, data: bytes) -> bytes:
     """Return HMAC-SM3 using the SM3 block size defined by the standard."""
-    block_size = 64
-    if len(key) > block_size:
-        key = sm3_digest(key)
-    key = key.ljust(block_size, b"\x00")
-    inner = bytes(byte ^ 0x36 for byte in key)
-    outer = bytes(byte ^ 0x5C for byte in key)
-    return sm3_digest(outer + sm3_digest(inner + data))
+    return _backend_sm3_hmac(key, data)
 
 
 def _validate_key(key: bytes, expected_size: int, name: str) -> None:
@@ -88,21 +90,35 @@ def sm4_encrypt(
     encryption_key: bytes,
     mac_key: bytes,
     associated_data: bytes = b"",
+    stats: Optional[Dict[str, float]] = None,
 ) -> bytes:
     """Encrypt and authenticate bytes with SM4-CBC and encrypt-then-MAC."""
     _validate_key(encryption_key, SM4_KEY_SIZE, "encryption_key")
     if not mac_key:
         raise ValueError("mac_key must not be empty")
     iv = os.urandom(SM4_BLOCK_SIZE)
+    key_id_started = time.perf_counter()
     key_id = sm3_digest(encryption_key)[:SM4_KEY_ID_SIZE]
-    cipher = CryptSM4(padding_mode=3)
-    cipher.set_key(encryption_key, SM4_ENCRYPT)
-    ciphertext = cipher.crypt_cbc(iv, plaintext)
+    if stats is not None:
+        stats["key_id_seconds"] = stats.get("key_id_seconds", 0.0) + (
+            time.perf_counter() - key_id_started
+        )
+    cipher_started = time.perf_counter()
+    ciphertext = sm4_cbc_encrypt(encryption_key, iv, plaintext)
+    if stats is not None:
+        stats["sm4_seconds"] = stats.get("sm4_seconds", 0.0) + (
+            time.perf_counter() - cipher_started
+        )
     authenticated_data = (
         SM4_ENVELOPE_HEADER + len(associated_data).to_bytes(4, "big")
         + associated_data + key_id + iv + ciphertext
     )
+    mac_started = time.perf_counter()
     tag = sm3_hmac(mac_key, authenticated_data)
+    if stats is not None:
+        stats["hmac_sm3_seconds"] = stats.get("hmac_sm3_seconds", 0.0) + (
+            time.perf_counter() - mac_started
+        )
     return Sm4Envelope(key_id=key_id, iv=iv, tag=tag, ciphertext=ciphertext).encode()
 
 
@@ -111,26 +127,43 @@ def sm4_decrypt(
     encryption_key: bytes,
     mac_key: bytes,
     associated_data: bytes = b"",
+    stats: Optional[Dict[str, float]] = None,
 ) -> bytes:
     """Authenticate and decrypt an SM4-CBC envelope."""
     _validate_key(encryption_key, SM4_KEY_SIZE, "encryption_key")
     if not mac_key:
         raise ValueError("mac_key must not be empty")
     parsed = Sm4Envelope.decode(envelope)
+    key_id_started = time.perf_counter()
     key_id = sm3_digest(encryption_key)[:SM4_KEY_ID_SIZE]
+    if stats is not None:
+        stats["key_id_seconds"] = stats.get("key_id_seconds", 0.0) + (
+            time.perf_counter() - key_id_started
+        )
     if not hmac.compare_digest(parsed.key_id, key_id):
         raise ValueError("SM4 envelope authentication failed")
     authenticated_data = (
         SM4_ENVELOPE_HEADER + len(associated_data).to_bytes(4, "big")
         + associated_data + parsed.key_id + parsed.iv + parsed.ciphertext
     )
+    mac_started = time.perf_counter()
     expected_tag = sm3_hmac(mac_key, authenticated_data)
+    if stats is not None:
+        stats["hmac_sm3_seconds"] = stats.get("hmac_sm3_seconds", 0.0) + (
+            time.perf_counter() - mac_started
+        )
     if not hmac.compare_digest(parsed.tag, expected_tag):
         raise ValueError("SM4 envelope authentication failed")
-    cipher = CryptSM4(padding_mode=3)
-    cipher.set_key(encryption_key, SM4_DECRYPT)
     try:
-        return cipher.crypt_cbc(parsed.iv, parsed.ciphertext)
+        cipher_started = time.perf_counter()
+        plaintext = sm4_cbc_decrypt(
+            encryption_key, parsed.iv, parsed.ciphertext
+        )
+        if stats is not None:
+            stats["sm4_seconds"] = stats.get("sm4_seconds", 0.0) + (
+                time.perf_counter() - cipher_started
+            )
+        return plaintext
     except (ValueError, IndexError) as exc:
         raise ValueError("invalid SM4 ciphertext") from exc
 

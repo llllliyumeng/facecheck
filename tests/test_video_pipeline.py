@@ -97,6 +97,45 @@ def test_encrypted_storage_restores_identical_file(tmp_path: Path) -> None:
     assert "mac_key" not in manifest
 
 
+def test_storage_stats_are_optional_and_do_not_change_round_trip(tmp_path: Path) -> None:
+    source = tmp_path / "source.bin"
+    source.write_bytes(b"0123456789" * 100)
+    stats = {}
+    stored = store_encrypted_video(
+        source,
+        tmp_path / "storage",
+        b"0123456789abcdef",
+        b"independent-mac-key",
+        chunk_size=32,
+        key_version="video-key-v1",
+        video_id="stats-video",
+        stats=stats,
+    )
+    restore_stats = {}
+    restored = restore_encrypted_video(
+        stored.directory,
+        tmp_path / "restored.bin",
+        b"0123456789abcdef",
+        b"independent-mac-key",
+        stats=restore_stats,
+    )
+
+    assert restored.read_bytes() == source.read_bytes()
+    assert stats["source_sha256_seconds"] >= 0
+    assert stats["sm4_seconds"] > 0
+    assert stats["hmac_sm3_seconds"] > 0
+    assert stats["ciphertext_write_seconds"] >= 0
+    assert restore_stats["sm4_seconds"] > 0
+    assert restore_stats["hmac_sm3_seconds"] > 0
+    assert restore_stats["sha256_seconds"] >= 0
+    assert restore_stats["plaintext_write_seconds"] >= 0
+    assert all(
+        "0123456789abcdef" not in str(value)
+        and "independent-mac-key" not in str(value)
+        for value in [*stats.values(), *restore_stats.values()]
+    )
+
+
 def test_empty_file_round_trip_and_existing_destination_is_rejected(tmp_path: Path) -> None:
     source = tmp_path / "empty.bin"
     source.touch()

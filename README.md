@@ -4,6 +4,99 @@
 
 当前已完成一个可本地演示的 MVP：项目初始化、SM2/SM3/SM4 基础验证、视频读取/抽帧/分片/加密存储、SQLite 任务服务、YuNet 检测、SFace 特征提取，以及针对已加密视频的内存相似度检索。当前仍是本机可信测试原型，不是生产云服务。
 
+## 最快启动（本地演示）
+
+以下命令适用于 macOS，必须在项目根目录执行：
+
+```bash
+cd /Users/mac/Desktop/nuist/facecheck
+
+# 第一次运行时创建虚拟环境并安装依赖
+uv sync --python python3
+
+# 配置运行时密钥。SM4 密钥必须是 16 个 UTF-8 字节；
+# MAC 密钥应与 SM4 密钥不同，下面仅用于本机课程演示。
+export FACECHECK_SM4_KEY='0123456789abcdef'
+export FACECHECK_MAC_KEY='local-demo-mac-key'
+
+# 配置本地模型路径（模型文件不能提交到 Git）
+export FACECHECK_YUNET_MODEL="$PWD/models/face_detection_yunet_2023mar.onnx"
+export FACECHECK_SFACE_MODEL="$PWD/models/face_recognition_sface_2021dec.onnx"
+
+# 只绑定本机，启动后端和中文演示页面
+uv run uvicorn facecheck.main:app --host 127.0.0.1 --port 8000
+```
+
+启动成功后，在浏览器打开：
+
+- 中文演示页面：http://127.0.0.1:8000/
+- 健康检查：http://127.0.0.1:8000/health
+- Swagger API 文档：http://127.0.0.1:8000/docs
+
+看到 `{"status":"ok"}` 表示后端已经启动。停止服务请回到运行 Uvicorn 的终端按 `Ctrl+C`。
+
+### 页面演示步骤
+
+1. 准备明确授权的测试视频。
+2. 打开中文演示页面，在“上传授权视频”区域选择视频并点击“上传并处理”。
+3. 等待任务显示为 `completed`。当前上传和加密是同步处理，视频较大时需要等待请求完成。
+4. 在“授权图片检索”区域选择已完成的视频任务和授权查询图片。
+5. 点击“开始检索”，查看候选编号、帧号、时间戳和相似度。
+6. 相似度是向量之间的数学相似度，不是身份确认概率。
+
+如果只想验证服务是否可用，可以另开一个终端执行：
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+如果终端提示 `uv: command not found`，先执行：
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+uv --version
+```
+
+退出当前终端后，若希望永久生效，再将这行加入 `~/.zshrc`。
+
+### 使用自动启动脚本
+
+项目也提供了 macOS/Linux Shell 启动脚本，可以自动检查虚拟环境和两个模型文件：
+
+```bash
+cd /Users/mac/Desktop/nuist/facecheck
+chmod +x scripts/start_local.sh
+./scripts/start_local.sh
+```
+
+脚本默认使用：
+
+- 地址：`127.0.0.1`
+- 端口：`8000`
+- 数据目录：`data/`
+- YuNet：`models/face_detection_yunet_2023mar.onnx`
+- SFace：`models/face_recognition_sface_2021dec.onnx`
+
+如果端口被占用，可以临时指定其他端口：
+
+```bash
+PORT=8001 ./scripts/start_local.sh
+```
+
+如果 8000 已经运行着 Facecheck，脚本会识别已有服务并提示访问地址，不会重复启动。若要重启服务，请在原运行窗口按 `Ctrl+C`；也可以直接使用其他端口。
+
+如果修改了模型路径、密钥或启动脚本，必须先停止旧服务，再重新运行脚本；已经运行的 Uvicorn 进程不会自动继承新终端中的环境变量。
+
+如果模型放在其他位置，可以指定模型路径：
+
+```bash
+FACECHECK_YUNET_MODEL="$HOME/models/face_detection_yunet_2023mar.onnx" \
+FACECHECK_SFACE_MODEL="$HOME/models/face_recognition_sface_2021dec.onnx" \
+./scripts/start_local.sh
+```
+
+脚本不会下载模型，也不会把密钥写入文件。未设置密钥时，它会使用仅用于课程本机演示的临时默认值，并在终端显示提示；生产环境必须通过受控运行时配置注入密钥。
+
 ## 环境要求
 
 - macOS（Apple Silicon 可用）
@@ -44,7 +137,7 @@ uv sync --python python3
 ## 启动开发服务器
 
 ```bash
-uv run uvicorn facecheck.main:app --reload
+uv run uvicorn facecheck.main:app --host 127.0.0.1 --port 8000
 ```
 
 启动后访问：
@@ -141,6 +234,55 @@ curl -X POST "http://127.0.0.1:8000/api/v1/videos/<task_id>/search?top_k=10" \
 ```
 
 检索前会通过现有 `restore_encrypted_video` 完成分片集合检查、MAC 验证和最终 SHA-256 校验；验证失败不会进入 YuNet 或 SFace。查询图片只在请求内存中解码，不写入数据库、日志或响应。
+
+上传和检索响应会返回非敏感处理统计，例如上传接收、视频读取、加密存储、恢复校验、视频解码、抽帧、人脸检测、SFace 特征提取和排序耗时。实际基准应以本机运行结果为准，不把示例耗时当作性能承诺。
+
+当前实测授权视频对照（4.86 MB、960×720、30 FPS、19 个抽帧、12 个特征）：
+
+- 明文检索约 0.94 秒；
+- 加密视频检索约 56.40 秒，其中恢复和分片完整性校验约 55.22 秒；
+- 上传加密存储约 57.38 秒。
+
+这表明原始实现的主要瓶颈是 `gmssl` 纯 Python 实现执行 SM4-CBC 和 HMAC-SM3 的分片加密/恢复，不是 YuNet、SFace 或相似度排序。项目现在使用独立的 `crypto_backend.py` 适配层调用 `cryptography` 的 SM4、SM3 和 HMAC API；SM4-CBC、PKCS#7 填充、HMAC-SM3、MAC 校验顺序和现有 envelope 格式均保持不变。
+
+原始 `gmssl` 实现和新后端均使用同一授权视频、1 MiB 分片、临时目录和临时测试密钥。新后端使用 `cryptography==42.0.8`，其 wheel 搭载的 OpenSSL 版本为 `3.2.2`。三次独立运行的结果如下；每次恢复后的 SHA-256 都与源文件一致：
+
+| 实现与阶段 | 第一次 | 第二次 | 第三次 | 中位数 |
+|---|---:|---:|---:|---:|
+| 新后端加密总耗时 | 0.273 秒 | 0.265 秒 | 0.266 秒 | 0.266 秒 |
+| 新后端加密 SM4-CBC | 0.170 秒 | 0.167 秒 | 0.168 秒 | 0.168 秒 |
+| 新后端加密 HMAC-SM3 | 0.086 秒 | 0.086 秒 | 0.086 秒 | 0.086 秒 |
+| 新后端恢复总耗时 | 0.266 秒 | 0.266 秒 | 0.265 秒 | 0.266 秒 |
+| 新后端恢复 SM4-CBC | 0.168 秒 | 0.169 秒 | 0.168 秒 | 0.168 秒 |
+| 新后端恢复 HMAC-SM3 | 0.085 秒 | 0.085 秒 | 0.086 秒 | 0.085 秒 |
+| 新后端恢复 SHA-256 | 0.005 秒 | 0.005 秒 | 0.005 秒 | 0.005 秒 |
+
+此前 `gmssl` 中位数约为加密 57.5 秒、恢复 55.3 秒；在相同输入和测试条件下，本次观测的新后端约快 200 倍以上。该结果是本机三次观测，不是吞吐量或延迟承诺。适配层测试了固定 IV 的密文互操作、SM3/HMAC 输出、错误密钥、篡改数据、旧 `gmssl` envelope 读取和新密文由 `gmssl` 解密；仍应在目标部署环境重新基准。
+
+候选调研结论：
+
+- [`cryptography` 对称加密文档](https://cryptography.io/en/latest/hazmat/primitives/symmetric-encryption/)和 API 提供 SM4-CBC、PKCS#7 所需接口，当前锁定版本实际暴露 `algorithms.SM4` 与 `hashes.SM3`。
+- [PyCryptodome 官方 API](https://www.pycryptodome.org/src/api)当前未提供本项目所需的 SM4/SM3 组合，因此未接入。
+- macOS 系统 LibreSSL 3.3.6 的本机命令行未列出 SM4/SM3；项目使用 `cryptography` wheel 自带的 OpenSSL，不依赖系统 LibreSSL。
+- 这些实现仍只提供分组加密和哈希/MAC原语；项目继续保留独立 HMAC-SM3、认证先于解密和恢复后的 SHA-256 校验。
+
+## 审计和安全状态
+
+以下接口读取真实 SQLite 审计记录和任务元数据，不返回密钥、embedding、原始图片或绝对路径：
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/audit?limit=50&offset=0"
+curl http://127.0.0.1:8000/api/v1/security/summary
+```
+
+审计记录包括任务创建、处理中、完成/失败、检索成功和检索失败。视频列表和任务响应会展示 SM4-CBC、HMAC-SM3、分片数量、密钥版本、完整性状态和非敏感耗时。
+
+安全状态如实说明：
+
+- 已实现：SM4-CBC 加密、分片 HMAC-SM3、SHA-256 恢复一致性检查、错误密钥/篡改拒绝、SQLite 操作审计、审计查询。
+- 部分实现：密钥版本字段和运行时密钥配置；尚未实现自动轮换、撤销和历史数据迁移。
+- 尚未实现：身份认证、用户权限、多租户隔离、生产级密钥托管。
+- manifest 有结构和一致性校验，但没有独立 HMAC/SM2 签名，因此不提供清单来源认证或防回滚。
 
 ## 运行测试
 

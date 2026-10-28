@@ -21,6 +21,7 @@ env/
 secrets/
 models/
 authorized-sample.mp4
+query-frame*.png
 
 # Local application data
 data/

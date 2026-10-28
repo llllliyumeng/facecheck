@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tempfile
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -28,6 +29,12 @@ class TaskResponse(BaseModel):
     created_at: str
     updated_at: str
     error_message: Optional[str] = None
+    processing_metrics: dict[str, object] = {}
+    encryption_algorithm: Optional[str] = None
+    mac_algorithm: Optional[str] = None
+    integrity_status: Optional[str] = None
+    key_version: Optional[str] = None
+    chunk_count: Optional[int] = None
 
 
 class TaskListResponse(BaseModel):
@@ -49,16 +56,53 @@ class FaceSearchResponse(BaseModel):
     status: str
     similarity_note: str
     results: list[FaceSearchResultResponse]
+    timings: dict[str, object] = {}
+
+
+class AuditEventResponse(BaseModel):
+    event_id: int
+    task_id: Optional[str] = None
+    event_type: str
+    created_at: str
+    detail: Optional[str] = None
+
+
+class AuditListResponse(BaseModel):
+    items: list[AuditEventResponse]
+    limit: int
+    offset: int
+    total: int
+
+
+def task_response(task: dict) -> TaskResponse:
+    metrics = task.get("processing_metrics") or {}
+    completed = task.get("status") == "completed"
+    data = dict(task)
+    data["processing_metrics"] = metrics
+    return TaskResponse(
+        **data,
+        encryption_algorithm="SM4-CBC" if completed else None,
+        mac_algorithm="HMAC-SM3" if completed else None,
+        integrity_status="verified" if completed else None,
+        key_version=metrics.get("key_version") if completed else None,
+        chunk_count=metrics.get("chunk_count") if completed else None,
+    )
 
 
 def create_router(repository: TaskRepository, service: VideoTaskService) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
 
-    @router.post("/videos", response_model=TaskResponse, status_code=201)
+    @router.post(
+        "/videos",
+        response_model=TaskResponse,
+        response_model_exclude_none=True,
+        status_code=201,
+    )
     async def upload_video(file: UploadFile = File(...)) -> TaskResponse:
         if not file.filename:
             raise HTTPException(status_code=400, detail="filename is required")
         size = 0
+        received_started = time.perf_counter()
         temporary_path: Optional[Path] = None
         try:
             with tempfile.NamedTemporaryFile(
@@ -76,39 +120,94 @@ def create_router(repository: TaskRepository, service: VideoTaskService) -> APIR
                             detail=f"file exceeds {MAX_UPLOAD_SIZE} byte limit",
                         )
                     temporary.write(block)
-            result = service.create_and_process(temporary_path, file.filename, size)
-            return TaskResponse.model_validate(result)
+            result = service.create_and_process(
+                temporary_path,
+                file.filename,
+                size,
+                upload_receive_seconds=time.perf_counter() - received_started,
+            )
+            return task_response(result)
         finally:
             await file.close()
             if temporary_path is not None:
                 temporary_path.unlink(missing_ok=True)
 
-    @router.get("/tasks/{task_id}", response_model=TaskResponse)
+    @router.get(
+        "/tasks/{task_id}",
+        response_model=TaskResponse,
+        response_model_exclude_none=True,
+    )
     def get_task(task_id: str) -> TaskResponse:
         task = repository.get(task_id)
         if task is None:
             raise HTTPException(status_code=404, detail="task not found")
-        return TaskResponse.model_validate(task)
+        return task_response(task)
 
-    @router.get("/tasks", response_model=TaskListResponse)
+    @router.get(
+        "/tasks",
+        response_model=TaskListResponse,
+        response_model_exclude_none=True,
+    )
     def list_tasks(
         limit: int = Query(default=20, ge=1, le=100),
         offset: int = Query(default=0, ge=0),
     ) -> TaskListResponse:
-        items = [TaskResponse.model_validate(item) for item in repository.list(limit, offset)]
+        items = [task_response(item) for item in repository.list(limit, offset)]
         return TaskListResponse(
             items=items, limit=limit, offset=offset, total=repository.count()
         )
 
-    @router.get("/videos", response_model=TaskListResponse)
+    @router.get(
+        "/videos",
+        response_model=TaskListResponse,
+        response_model_exclude_none=True,
+    )
     def list_videos(
         limit: int = Query(default=20, ge=1, le=100),
         offset: int = Query(default=0, ge=0),
     ) -> TaskListResponse:
-        items = [TaskResponse.model_validate(item) for item in repository.list(limit, offset)]
+        items = [task_response(item) for item in repository.list(limit, offset)]
         return TaskListResponse(
             items=items, limit=limit, offset=offset, total=repository.count()
         )
+
+    @router.get("/audit", response_model=AuditListResponse)
+    def list_audit(
+        limit: int = Query(default=50, ge=1, le=200),
+        offset: int = Query(default=0, ge=0),
+        task_id: Optional[str] = Query(default=None, min_length=1, max_length=64),
+    ) -> AuditListResponse:
+        items = [
+            AuditEventResponse.model_validate(item)
+            for item in repository.list_audit(limit, offset, task_id)
+        ]
+        return AuditListResponse(
+            items=items,
+            limit=limit,
+            offset=offset,
+            total=repository.audit_count(task_id),
+        )
+
+    @router.get("/security/summary")
+    def security_summary() -> dict[str, object]:
+        tasks = repository.list(100, 0)
+        completed = [task for task in tasks if task["status"] == "completed"]
+        failures = [
+            event
+            for event in repository.list_audit(200, 0)
+            if event["event_type"]
+            in {"face_search_failed", "integrity_validation_failed", "task_failed"}
+        ]
+        return {
+            "encryption": "SM4-CBC",
+            "authentication": "HMAC-SM3",
+            "integrity_check": "chunk MAC + SHA-256",
+            "manifest_authentication": "not independently authenticated",
+            "authentication_required": False,
+            "completed_video_count": len(completed),
+            "audit_event_count": repository.audit_count(),
+            "failure_count": len(failures),
+        }
 
     @router.post(
         "/videos/{task_id}/search",
@@ -138,6 +237,7 @@ def create_router(repository: TaskRepository, service: VideoTaskService) -> APIR
                 status=task["status"],
                 similarity_note="相似度是向量间的数学相似度，不是身份确认概率。",
                 results=[FaceSearchResultResponse.model_validate(item) for item in results],
+                timings=service.last_search_metrics,
             )
         except HTTPException:
             raise

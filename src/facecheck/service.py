@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import json
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -13,7 +15,7 @@ import numpy as np
 from .database import TaskRepository
 from .face_detection import FaceDetection, FaceDetectionConfig, load_yunet_detector
 from .face_embedding import SFaceConfig, extract_embedding
-from .face_search import FaceSearchConfig, search_encrypted_video
+from .face_search import FaceSearchConfig, FaceSearchError, search_encrypted_video
 from .storage import StorageError, store_encrypted_video
 from .video import VideoProcessingError, read_video_info
 
@@ -48,6 +50,7 @@ class VideoTaskService:
     ) -> None:
         self.repository = repository
         self.storage_root = storage_root
+        self.last_search_metrics: Dict[str, Any] = {}
         self.encryption_key = encryption_key or self._key_from_env("FACECHECK_SM4_KEY")
         self.mac_key = mac_key or self._key_from_env("FACECHECK_MAC_KEY")
 
@@ -69,15 +72,27 @@ class VideoTaskService:
             shutil.rmtree(directory)
 
     def create_and_process(
-        self, source: Path, original_filename: str, source_size: int
+        self,
+        source: Path,
+        original_filename: str,
+        source_size: int,
+        *,
+        upload_receive_seconds: Optional[float] = None,
     ) -> Dict[str, Any]:
         task_id = uuid.uuid4().hex
+        started = time.perf_counter()
+        metrics: Dict[str, Any] = {"upload_bytes": source_size}
+        if upload_receive_seconds is not None:
+            metrics["upload_receive_seconds"] = round(upload_receive_seconds, 6)
         self.repository.create_task(task_id, clean_filename(original_filename), source_size)
         try:
+            video_started = time.perf_counter()
             self.repository.transition(task_id, "processing")
             if self.encryption_key is None or self.mac_key is None:
                 raise StorageError("encryption configuration is unavailable")
             read_video_info(source)
+            metrics["video_read_seconds"] = round(time.perf_counter() - video_started, 6)
+            encryption_started = time.perf_counter()
             stored = store_encrypted_video(
                 source,
                 self.storage_root,
@@ -86,7 +101,13 @@ class VideoTaskService:
                 chunk_size=CHUNK_SIZE,
                 key_version=KEY_VERSION,
                 video_id=task_id,
+                stats=metrics,
             )
+            metrics["encryption_storage_seconds"] = round(
+                time.perf_counter() - encryption_started, 6
+            )
+            metrics["chunk_count"] = stored.manifest.get("chunk_count", 0)
+            metrics["key_version"] = stored.manifest.get("key_version")
             try:
                 self.repository.transition(
                     task_id, "completed", storage_id=stored.video_id
@@ -94,7 +115,14 @@ class VideoTaskService:
             except Exception:
                 self._remove_storage_directory(stored.directory)
                 raise
+            metrics["total_seconds"] = round(time.perf_counter() - started, 6)
+            self.repository.update_metrics(task_id, metrics)
         except Exception as error:
+            metrics["total_seconds"] = round(time.perf_counter() - started, 6)
+            try:
+                self.repository.update_metrics(task_id, metrics)
+            except Exception:
+                pass
             try:
                 self.repository.transition(
                     task_id, "failed", error_message=clean_error(error)
@@ -132,10 +160,12 @@ class VideoTaskService:
         if not storage_directory.is_dir():
             raise StorageError("stored video is unavailable")
 
+        started = time.perf_counter()
         image_array = np.frombuffer(query_image, dtype=np.uint8)
         image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
         if image is None:
             raise ValueError("query file is not a readable image")
+        query_decode_seconds = time.perf_counter() - started
         yunet_model = self._path_from_env("FACECHECK_YUNET_MODEL")
         sface_model = self._path_from_env("FACECHECK_SFACE_MODEL")
         if yunet_model is None or sface_model is None:
@@ -181,13 +211,34 @@ class VideoTaskService:
         )
         temporary_root = self.storage_root.parent / "search-temp"
         temporary_root.mkdir(parents=True, exist_ok=True)
-        results = search_encrypted_video(
-            storage_directory,
-            query_vector,
-            config,
-            self.encryption_key,
-            self.mac_key,
-            temp_root=temporary_root,
+        metrics: Dict[str, Any] = {}
+        try:
+            results = search_encrypted_video(
+                storage_directory,
+                query_vector,
+                config,
+                self.encryption_key,
+                self.mac_key,
+                temp_root=temporary_root,
+                stats=metrics,
+            )
+        except Exception as error:
+            event_type = "face_search_failed"
+            if isinstance(error, FaceSearchError) and isinstance(
+                error.__cause__, StorageError
+            ):
+                event_type = "integrity_validation_failed"
+            self.repository.record_event(
+                task_id, event_type, clean_error(error)
+            )
+            raise
+        metrics["query_image_decode_seconds"] = round(query_decode_seconds, 6)
+        metrics["total_seconds"] = round(time.perf_counter() - started, 6)
+        self.last_search_metrics = metrics
+        self.repository.record_event(
+            task_id,
+            "face_search_completed",
+            json.dumps(metrics, sort_keys=True),
         )
         return [
             {

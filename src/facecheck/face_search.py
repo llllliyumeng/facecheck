@@ -113,6 +113,7 @@ def _search_frames(
     detector_factory: Optional[DetectorFactory],
     recognizer_factory: Optional[RecognizerFactory],
     clock: Callable[[], float],
+    stats: Optional[Dict[str, float]],
 ) -> Tuple[FaceSearchResult, ...]:
     started = clock()
     detector: FaceDetector = (
@@ -122,14 +123,18 @@ def _search_frames(
     )
     recognizer = None
     candidates: List[_Candidate] = []
+    detection_seconds = 0.0
+    embedding_seconds = 0.0
     for frame in frames:
         if clock() - started > config.max_processing_seconds:
             raise FaceSearchError("face search exceeded the time limit")
         try:
+            detection_started = clock()
             height, width = frame.image.shape[:2]
             detector.setInputSize((width, height))
             _, raw_faces = detector.detect(frame.image)
             detections = _detections_from_raw(raw_faces, frame)
+            detection_seconds += clock() - detection_started
         except FaceSearchError:
             raise
         except Exception as exc:
@@ -138,6 +143,7 @@ def _search_frames(
             ) from exc
         for face_index, detection in enumerate(detections):
             try:
+                embedding_started = clock()
                 if recognizer is None:
                     recognizer = (
                         recognizer_factory(config.embedding)
@@ -150,6 +156,7 @@ def _search_frames(
                     config.embedding,
                     recognizer_factory=lambda _, value=recognizer: value,
                 )
+                embedding_seconds += clock() - embedding_started
             except FaceEmbeddingError as exc:
                 raise FaceSearchError(
                     f"feature extraction failed at frame {frame.index}, "
@@ -164,6 +171,11 @@ def _search_frames(
                 )
             )
 
+    if stats is not None:
+        stats["face_detection_seconds"] = round(detection_seconds, 6)
+        stats["sface_embedding_seconds"] = round(embedding_seconds, 6)
+        stats["feature_count"] = len(candidates)
+    similarity_started = clock()
     matches = search_embeddings(
         query,
         ((candidate.candidate_id, candidate.vector) for candidate in candidates),
@@ -171,6 +183,9 @@ def _search_frames(
         min_similarity=config.min_similarity,
         dimension=config.embedding.expected_dimension,
     )
+    if stats is not None:
+        stats["similarity_sort_seconds"] = round(clock() - similarity_started, 6)
+        stats["result_count"] = len(matches)
     metadata: Dict[str, _Candidate] = {
         candidate.candidate_id: candidate for candidate in candidates
     }
@@ -193,16 +208,24 @@ def search_video(
     detector_factory: Optional[DetectorFactory] = None,
     recognizer_factory: Optional[RecognizerFactory] = None,
     clock: Callable[[], float] = time.monotonic,
+    stats: Optional[Dict[str, float]] = None,
 ) -> Tuple[FaceSearchResult, ...]:
     config.validate()
     try:
+        info_started = clock()
         info = read_video_info(video_path)
+        if stats is not None:
+            stats["video_info_seconds"] = round(clock() - info_started, 6)
         if info.duration_seconds > config.detection.max_duration_seconds:
             raise FaceSearchError("video exceeds the maximum duration")
+        frame_started = clock()
         frames = extract_frames(
             video_path,
             config.detection.frame_interval_seconds,
         )
+        if stats is not None:
+            stats["video_decode_extract_seconds"] = round(clock() - frame_started, 6)
+            stats["sampled_frame_count"] = len(frames)
         if len(frames) > config.detection.max_frames:
             raise FaceSearchError("video exceeds the maximum frame limit")
         return _search_frames(
@@ -212,6 +235,7 @@ def search_video(
             detector_factory=detector_factory,
             recognizer_factory=recognizer_factory,
             clock=clock,
+            stats=stats,
         )
     except FaceSearchError:
         raise
@@ -230,6 +254,7 @@ def search_encrypted_video(
     detector_factory: Optional[DetectorFactory] = None,
     recognizer_factory: Optional[RecognizerFactory] = None,
     clock: Callable[[], float] = time.monotonic,
+    stats: Optional[Dict[str, float]] = None,
 ) -> Tuple[FaceSearchResult, ...]:
     config.validate()
     try:
@@ -237,13 +262,19 @@ def search_encrypted_video(
             prefix="facecheck-search-",
             dir=str(temp_root) if temp_root is not None else None,
         ) as directory:
+            restore_started = clock()
             restored_path = Path(directory) / "restored-video"
             restore_encrypted_video(
                 stored_directory,
                 restored_path,
                 encryption_key,
                 mac_key,
+                stats=stats,
             )
+            if stats is not None:
+                stats["restore_and_integrity_seconds"] = round(
+                    clock() - restore_started, 6
+                )
             return search_video(
                 restored_path,
                 query,
@@ -251,6 +282,7 @@ def search_encrypted_video(
                 detector_factory=detector_factory,
                 recognizer_factory=recognizer_factory,
                 clock=clock,
+                stats=stats,
             )
     except FaceSearchError:
         raise

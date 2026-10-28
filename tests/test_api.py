@@ -58,6 +58,10 @@ def test_upload_valid_video_and_persistent_listing(tmp_path: Path) -> None:
     task = upload.json()
     assert task["status"] == "completed"
     assert task["storage_id"] == task["task_id"]
+    assert task["encryption_algorithm"] == "SM4-CBC"
+    assert task["mac_algorithm"] == "HMAC-SM3"
+    assert task["integrity_status"] == "verified"
+    assert task["processing_metrics"]["chunk_count"] == 1
     assert Path(tmp_path / "storage" / task["storage_id"] / "manifest.json").is_file()
 
     listing = client.get("/api/v1/tasks?limit=1&offset=0")
@@ -79,6 +83,16 @@ def test_upload_valid_video_and_persistent_listing(tmp_path: Path) -> None:
 
     restarted = make_client(tmp_path)
     assert restarted.get(f"/api/v1/tasks/{task['task_id']}").json()["status"] == "completed"
+
+    audit = restarted.get("/api/v1/audit?limit=20")
+    assert audit.status_code == 200
+    assert audit.json()["total"] >= 3
+    assert any(
+        event["event_type"] == "task_completed" for event in audit.json()["items"]
+    )
+    summary = restarted.get("/api/v1/security/summary")
+    assert summary.status_code == 200
+    assert summary.json()["manifest_authentication"] == "not independently authenticated"
 
 
 def test_upload_rejects_oversize_and_missing_task(tmp_path: Path) -> None:

@@ -3,104 +3,325 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Facecheck 隐私保护原型</title>
+  <title>FaceGuard · 人像视频隐私控制台</title>
   <style>
-    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    body { margin: 0; background: #f3f6fb; color: #172033; }
-    header { background: #173b6d; color: #fff; padding: 28px max(20px, calc((100% - 1100px) / 2)); }
-    main { max-width: 1100px; margin: 24px auto; padding: 0 20px 48px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 18px; }
-    .card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 18px #18345c12; }
-    h1, h2 { margin-top: 0; } h1 { margin-bottom: 6px; font-size: 28px; }
-    label { display: block; margin: 12px 0 6px; font-weight: 600; }
-    input, select, button { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #c9d2e3; border-radius: 7px; font: inherit; }
-    button { margin-top: 14px; background: #1769aa; color: white; border: 0; cursor: pointer; font-weight: 600; }
-    button:disabled { opacity: .55; cursor: wait; }
-    .status { padding: 9px 12px; border-radius: 7px; background: #eef4fb; margin: 10px 0; }
-    .error { background: #fff0f0; color: #9c2525; } .success { background: #effaf2; color: #24733b; }
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; } th, td { padding: 8px; border-bottom: 1px solid #e8edf5; text-align: left; }
-    .muted { color: #65748b; font-size: 14px; line-height: 1.6; }
-    code { background: #eef2f8; padding: 2px 5px; border-radius: 4px; }
+    :root {
+      color-scheme: light;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+      --navy: #102a43;
+      --navy-soft: #1d4163;
+      --blue: #1769aa;
+      --ink: #1b2b41;
+      --muted: #64748b;
+      --line: #e4eaf2;
+      --surface: #fff;
+      --background: #f5f7fb;
+      --success: #19734a;
+      --warning: #9a5b08;
+      --danger: #b42318;
+      --shadow: 0 10px 28px rgba(16, 42, 67, .07);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--background); color: var(--ink); }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .app { min-height: 100vh; }
+    .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 10; width: 248px; height: 100vh; overflow-y: auto; padding: 28px 16px; background: var(--navy); color: #e9f2fb; }
+    .brand { display: flex; gap: 12px; align-items: center; padding: 0 12px 30px; }
+    .brand-mark { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: #2e7db6; color: #fff; font-weight: 800; }
+    .brand strong { display: block; font-size: 18px; letter-spacing: .04em; }
+    .brand span { display: block; margin-top: 3px; color: #a9c1d8; font-size: 12px; }
+    .nav { display: grid; gap: 6px; }
+    .nav button { width: 100%; padding: 12px 14px; border: 0; border-radius: 9px; background: transparent; color: #b8cce0; text-align: left; }
+    .nav button:hover, .nav button.active { background: var(--navy-soft); color: #fff; }
+    .nav-icon { display: inline-block; width: 25px; color: #8eb3d2; }
+    .side-note { margin: 30px 12px 0; padding: 14px; border: 1px solid #2d506d; border-radius: 10px; color: #b8cce0; font-size: 12px; line-height: 1.7; }
+    .content { min-width: 0; margin-left: 248px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 24px clamp(20px, 4vw, 48px); border-bottom: 1px solid var(--line); background: rgba(255,255,255,.92); }
+    .eyebrow { margin: 0 0 5px; color: var(--blue); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 0; font-size: clamp(22px, 3vw, 30px); }
+    h2 { margin-bottom: 6px; font-size: 20px; }
+    h3 { margin-bottom: 4px; font-size: 15px; }
+    .topbar p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+    .health { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 999px; background: #edf8f1; color: var(--success); font-size: 13px; white-space: nowrap; }
+    .health.offline { background: #fff1f0; color: var(--danger); }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+    main { max-width: 1440px; margin: 0 auto; padding: clamp(20px, 4vw, 44px); }
+    .view { display: none; }
+    .view.active { display: block; }
+    .intro { display: flex; justify-content: space-between; align-items: end; gap: 18px; margin-bottom: 22px; }
+    .intro p { max-width: 700px; margin-bottom: 0; color: var(--muted); line-height: 1.7; }
+    .card { padding: 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); }
+    .grid { display: grid; gap: 18px; }
+    .summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 18px; }
+    .two-col { grid-template-columns: minmax(0, 1.4fr) minmax(300px, .8fr); }
+    .metric-label { margin-bottom: 10px; color: var(--muted); font-size: 13px; }
+    .metric-value { font-size: 28px; font-weight: 750; }
+    .metric-foot { margin-top: 8px; color: var(--muted); font-size: 12px; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .button { padding: 10px 15px; border: 1px solid transparent; border-radius: 8px; background: var(--blue); color: #fff; font-weight: 650; }
+    .button:hover { background: #12598f; }
+    .button.secondary { border-color: #cbd7e5; background: #fff; color: var(--ink); }
+    .button.secondary:hover { background: #f5f8fc; }
+    .button:disabled { cursor: wait; opacity: .55; }
+    .status { margin-top: 14px; padding: 11px 13px; border-radius: 8px; background: #f0f5fa; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .status.success { background: #edf8f1; color: var(--success); }
+    .status.error { background: #fff1f0; color: var(--danger); }
+    .status.warning { background: #fff8e8; color: var(--warning); }
+    .muted { color: var(--muted); font-size: 13px; line-height: 1.7; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { color: var(--muted); font-size: 12px; font-weight: 650; text-align: left; }
+    th, td { padding: 13px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    tbody tr:hover { background: #fafcff; }
+    code { padding: 3px 6px; border-radius: 5px; background: #eef3f8; color: #315474; font-size: 12px; }
+    .badge { display: inline-flex; padding: 4px 8px; border-radius: 999px; background: #edf2f7; color: #52657a; font-size: 11px; font-weight: 700; }
+    .badge.success { background: #e7f6ed; color: var(--success); }
+    .badge.warning { background: #fff3d6; color: var(--warning); }
+    .badge.danger { background: #ffe8e6; color: var(--danger); }
+    .details { display: none; padding: 14px; background: #f8fafc; }
+    .details.open { display: block; }
+    .detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 18px; }
+    .detail-item dt { color: var(--muted); font-size: 11px; }
+    .detail-item dd { margin: 3px 0 0; font-size: 13px; overflow-wrap: anywhere; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    label { display: block; margin-bottom: 7px; color: var(--ink); font-size: 13px; font-weight: 650; }
+    input, select { width: 100%; padding: 10px 11px; border: 1px solid #cbd7e5; border-radius: 8px; background: #fff; color: var(--ink); }
+    input:focus, select:focus, button:focus-visible { outline: 3px solid #a9d2ee; outline-offset: 1px; }
+    input[type=file] { padding: 8px; }
+    .security-list { display: grid; gap: 12px; margin-top: 16px; }
+    .security-row { display: flex; justify-content: space-between; gap: 20px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+    .security-row:last-child { border-bottom: 0; }
+    .security-row strong { font-size: 13px; }
+    .security-row span { color: var(--muted); font-size: 13px; text-align: right; }
+    .empty { padding: 30px 14px; color: var(--muted); text-align: center; }
+    .result-list { display: grid; gap: 10px; margin-top: 16px; }
+    .result-item { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 13px 14px; border: 1px solid var(--line); border-radius: 9px; }
+    .result-item strong { display: block; margin-bottom: 4px; }
+    .result-score { color: var(--blue); font-size: 18px; font-weight: 750; }
+    .notice { padding: 14px 16px; border-left: 3px solid #4f91bd; border-radius: 8px; background: #eef6fb; color: #315474; font-size: 13px; line-height: 1.7; }
+    .refreshing { color: var(--muted); font-size: 12px; }
+    @media (max-width: 960px) {
+      .sidebar { width: 204px; }
+      .content { margin-left: 204px; }
+      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .two-col { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 680px) {
+      .app { display: block; }
+      .sidebar { position: static; width: 100%; height: auto; max-height: none; overflow: visible; padding: 14px; }
+      .content { margin-left: 0; }
+      .brand { padding: 0 8px 14px; }
+      .nav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      .nav button { padding: 9px 4px; text-align: center; font-size: 11px; }
+      .nav-icon { display: block; width: auto; margin-bottom: 2px; }
+      .side-note { display: none; }
+      .topbar { align-items: flex-start; padding: 18px 20px; }
+      .health { font-size: 0; padding: 10px; }
+      .health .dot { width: 9px; height: 9px; }
+      main { padding: 20px 14px 34px; }
+      .summary-grid, .form-grid, .detail-grid { grid-template-columns: 1fr; }
+      .intro, .toolbar { align-items: flex-start; flex-direction: column; }
+      .security-row { display: block; }
+      .security-row span { display: block; margin-top: 5px; text-align: left; }
+    }
   </style>
 </head>
 <body>
-<header><h1>Facecheck</h1><div>基于 SM2/SM4 的人像视频存储、完整性保护与授权检索课程原型</div></header>
-<main>
-  <div id="health" class="status">正在检查后端...</div>
-  <div class="grid">
-    <section class="card">
-      <h2>上传授权视频</h2>
-      <p class="muted">视频会由服务端验证、分块加密并保存。这里只适用于本机授权测试素材。</p>
-      <input id="video" type="file" accept="video/*">
-      <button id="uploadBtn">上传并处理</button>
-      <div id="uploadStatus" class="status">等待上传</div>
-    </section>
-    <section class="card">
-      <h2>授权图片检索</h2>
-      <p class="muted">查询图片只在本次请求内处理，不保存 embedding。相似度不是身份确认概率。</p>
-      <label for="task">已完成视频任务</label>
-      <select id="task"><option value="">请先刷新视频列表</option></select>
-      <label for="query">授权查询图片</label>
-      <input id="query" type="file" accept="image/*">
-      <label for="topK">返回数量</label>
-      <input id="topK" type="number" min="1" max="100" value="10">
-      <button id="searchBtn">开始检索</button>
-      <div id="searchStatus" class="status">等待检索</div>
-    </section>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">FG</div>
+      <div><strong>FaceGuard</strong><span>隐私保护控制台</span></div>
+    </div>
+    <nav class="nav" aria-label="主导航">
+      <button class="active" data-view="overview"><span class="nav-icon">⌂</span>总览</button>
+      <button data-view="videos"><span class="nav-icon">▣</span>视频管理</button>
+      <button data-view="search"><span class="nav-icon">⌕</span>人脸检索</button>
+      <button data-view="security"><span class="nav-icon">◇</span>安全中心</button>
+      <button data-view="audit"><span class="nav-icon">≡</span>审计日志</button>
+    </nav>
+    <div class="side-note">本地演示模式<br>服务默认绑定 127.0.0.1<br>仅处理获得授权的测试素材</div>
+  </aside>
+  <div class="content">
+    <header class="topbar">
+      <div><p class="eyebrow">SECURE MEDIA WORKSPACE</p><h1 id="pageTitle">系统总览</h1><p id="pageSubtitle">查看视频任务、检索活动与安全状态</p></div>
+      <div id="health" class="health"><span class="dot"></span><span>检查服务中</span></div>
+    </header>
+    <main>
+      <section id="view-overview" class="view active">
+        <div class="intro"><div><h2>运行概况</h2><p>从真实任务、审计记录和安全摘要中查看当前系统状态。页面不展示密钥、embedding 或内部路径。</p></div><button id="overviewRefresh" class="button secondary">刷新数据</button></div>
+        <div id="overviewMetrics" class="grid summary-grid"></div>
+        <div class="grid two-col">
+          <section class="card"><div class="toolbar"><div><h2>近期任务</h2><p class="muted">上传视频后的处理状态和加密结果</p></div><button class="button secondary" data-go="videos">查看全部</button></div><div id="overviewTasks"></div></section>
+          <section class="card"><div class="toolbar"><div><h2>近期事件</h2><p class="muted">最近的系统操作记录</p></div><button class="button secondary" data-go="audit">审计日志</button></div><div id="overviewAudit"></div></section>
+        </div>
+      </section>
+
+      <section id="view-videos" class="view">
+        <div class="intro"><div><h2>视频管理</h2><p>上传授权视频，查看加密处理状态、分片信息和非敏感耗时指标。</p></div><button id="videoRefresh" class="button secondary">刷新列表</button></div>
+        <section class="card" style="margin-bottom:18px">
+          <div class="toolbar"><div><h2>上传授权视频</h2><p class="muted">服务端会校验、分片加密并记录任务状态；单文件限制由后端执行。</p></div></div>
+          <div class="form-grid"><div><label for="video">视频文件</label><input id="video" type="file" accept="video/*"></div><div style="align-self:end"><button id="uploadBtn" class="button">上传并处理</button></div></div>
+          <div id="uploadStatus" class="status">等待上传</div>
+        </section>
+        <section class="card"><div class="toolbar"><div><h2>任务列表</h2><p id="videoCount" class="muted">正在加载...</p></div></div><div id="tasks"></div></section>
+      </section>
+
+      <section id="view-search" class="view">
+        <div class="intro"><div><h2>人脸检索</h2><p>选择已完成的加密视频和授权查询图片，结果只返回受控候选编号、帧号、时间戳和数学相似度。</p></div></div>
+        <div class="grid two-col">
+          <section class="card">
+            <h2>检索工作区</h2><p class="muted">查询图片只在本次请求内处理，不保存 embedding。相似度不是身份确认概率。</p>
+            <div style="margin-top:20px"><label for="task">已完成视频任务</label><select id="task"><option value="">请先刷新视频列表</option></select></div>
+            <div style="margin-top:16px"><label for="query">授权查询图片</label><input id="query" type="file" accept="image/*"></div>
+            <div style="margin-top:16px"><label for="topK">返回数量（1-100）</label><input id="topK" type="number" min="1" max="100" value="10"></div>
+            <button id="searchBtn" class="button" style="margin-top:20px">开始检索</button>
+            <div id="searchStatus" class="status">等待检索</div>
+          </section>
+          <section class="card"><h2>检索结果</h2><p class="muted">完成检索后按需查看候选详情。</p><div id="results"><div class="empty">暂无结果</div></div></section>
+        </div>
+      </section>
+
+      <section id="view-security" class="view">
+        <div class="intro"><div><h2>安全中心</h2><p>展示当前实现的密码学能力、完整性状态和已知限制，不将设计目标描述为已实现能力。</p></div><button id="securityRefresh" class="button secondary">刷新状态</button></div>
+        <div class="grid two-col">
+          <section class="card"><h2>当前安全状态</h2><div id="securityDetails"></div></section>
+          <section class="card"><h2>安全边界</h2><div class="notice">当前服务默认用于 127.0.0.1 本机演示，没有身份认证、用户授权或多租户隔离。不要在公网部署，不要上传未授权的人脸数据。</div><div class="security-list"><div class="security-row"><strong>人脸特征</strong><span>仅内存处理，不写入数据库或 API 响应</span></div><div class="security-row"><strong>Manifest 来源认证</strong><span>尚未实现独立 HMAC/SM2 签名</span></div><div class="security-row"><strong>密钥轮换与撤销</strong><span>尚未实现自动轮换、撤销和迁移</span></div></div></section>
+        </div>
+      </section>
+
+      <section id="view-audit" class="view">
+        <div class="intro"><div><h2>审计日志</h2><p>默认显示真实 SQLite 审计记录；可按现有任务 ID 筛选，展开详情查看错误摘要。</p></div><button id="auditRefresh" class="button secondary">刷新日志</button></div>
+        <section class="card"><div class="form-grid" style="margin-bottom:18px"><div><label for="auditTask">按任务 ID 筛选（可选）</label><input id="auditTask" maxlength="64" placeholder="输入完整任务 ID"></div><div style="align-self:end"><button id="auditFilter" class="button">应用筛选</button></div></div><div id="auditTable"></div></section>
+      </section>
+    </main>
   </div>
-  <section class="card" style="margin-top:18px">
-    <h2>视频与任务</h2>
-    <button id="refreshBtn">刷新列表</button>
-    <div id="tasks" class="muted">暂无数据</div>
-  </section>
-  <section class="card" style="margin-top:18px">
-    <h2>检索结果</h2>
-    <div id="results" class="muted">暂无结果</div>
-  </section>
-  <section class="card" style="margin-top:18px">
-    <h2>安全边界</h2>
-    <p class="muted">本服务默认用于 127.0.0.1 本机演示，当前没有用户认证和多租户授权。视频分片使用 SM4-CBC + HMAC-SM3，恢复前验证 MAC 和 SHA-256。manifest 当前只有结构校验，没有独立签名。不要在公网部署，不要上传未授权的人脸数据。</p>
-  </section>
-</main>
+</div>
 <script>
 const $ = id => document.getElementById(id);
-function show(id, text, kind = '') { $(id).textContent = text; $(id).className = 'status ' + kind; }
+const viewMeta = {
+  overview: ['系统总览', '查看视频任务、检索活动与安全状态'],
+  videos: ['视频管理', '授权视频上传、加密处理与任务详情'],
+  search: ['人脸检索', '在内存中执行授权视频相似度检索'],
+  security: ['安全中心', '密码学能力、完整性状态与安全边界'],
+  audit: ['审计日志', '查看真实操作记录与失败摘要']
+};
+let tasks = [];
+let currentAuditFilter = '';
+
+function escapeHTML(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+}
+function showStatus(id, text, kind = '') {
+  const node = $(id); node.textContent = text; node.className = `status ${kind}`;
+}
+function formatBytes(value) {
+  if (!Number.isFinite(Number(value))) return '-';
+  const units = ['B', 'KB', 'MB', 'GB']; let amount = Number(value); let index = 0;
+  while (amount >= 1024 && index < units.length - 1) { amount /= 1024; index += 1; }
+  return `${amount.toFixed(index ? 1 : 0)} ${units[index]}`;
+}
+function statusBadge(status) {
+  const kind = status === 'completed' ? 'success' : status === 'failed' ? 'danger' : 'warning';
+  return `<span class="badge ${kind}">${escapeHTML(status)}</span>`;
+}
 async function api(url, options = {}) {
   const response = await fetch(url, options);
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.detail || `请求失败 (${response.status})`);
+  if (!response.ok) throw new Error(body.detail || `请求失败（${response.status}）`);
   return body;
 }
-async function refresh() {
-  const data = await api('/api/v1/videos?limit=100&offset=0');
-  $('task').innerHTML = '<option value="">请选择已完成任务</option>';
-  data.items.filter(item => item.status === 'completed').forEach(item => {
-    const option = document.createElement('option');
-    option.value = item.task_id;
-    option.textContent = `${item.task_id.slice(0, 12)} · ${item.original_filename}`;
-    $('task').appendChild(option);
-  });
-  if (!data.items.length) { $('tasks').textContent = '暂无任务'; return; }
-  $('tasks').innerHTML = `<table><tr><th>任务 ID</th><th>文件名</th><th>状态</th><th>大小</th></tr>${data.items.map(item => `<tr><td><code>${item.task_id.slice(0, 12)}</code></td><td>${item.original_filename}</td><td>${item.status}</td><td>${item.source_size} bytes</td></tr>`).join('')}</table>`;
+function setView(name) {
+  document.querySelectorAll('.view').forEach(node => node.classList.toggle('active', node.id === `view-${name}`));
+  document.querySelectorAll('.nav button').forEach(node => node.classList.toggle('active', node.dataset.view === name));
+  $('pageTitle').textContent = viewMeta[name][0]; $('pageSubtitle').textContent = viewMeta[name][1];
+  if (name === 'videos' || name === 'search' || name === 'overview') refreshTasks().catch(error => showStatus('uploadStatus', error.message, 'error'));
+  if (name === 'security' || name === 'overview') refreshSecurity().catch(error => renderError('securityDetails', error));
+  if (name === 'audit' || name === 'overview') refreshAudit().catch(error => renderError('auditTable', error));
+}
+function renderError(id, error) { $(id).innerHTML = `<div class="status error">${escapeHTML(error.message)}</div>`; }
+function taskDetails(item) {
+  const metrics = item.processing_metrics || {};
+  const entries = [
+    ['任务 ID', `<code>${escapeHTML(item.task_id)}</code>`], ['创建时间', escapeHTML(item.created_at)],
+    ['更新时间', escapeHTML(item.updated_at)], ['存储 ID', item.storage_id ? `<code>${escapeHTML(item.storage_id)}</code>` : '-'],
+    ['加密算法', escapeHTML(item.encryption_algorithm || '-')], ['认证算法', escapeHTML(item.mac_algorithm || '-')],
+    ['完整性', escapeHTML(item.integrity_status || '-')], ['密钥版本', escapeHTML(item.key_version || '-')],
+    ['分片数量', escapeHTML(item.chunk_count ?? '-')], ['总耗时', metrics.total_seconds != null ? `${escapeHTML(metrics.total_seconds)} s` : '-'],
+    ['错误摘要', item.error_message ? escapeHTML(item.error_message) : '-']
+  ];
+  return `<dl class="detail-grid">${entries.map(([key, value]) => `<div class="detail-item"><dt>${key}</dt><dd>${value}</dd></div>`).join('')}</dl>`;
+}
+function renderTaskTable(items, targetId, compact = false) {
+  if (!items.length) { $(targetId).innerHTML = '<div class="empty">暂无任务</div>'; return; }
+  const rows = items.map((item, index) => `<tr><td><button class="button secondary task-toggle" data-index="${index}" style="padding:5px 8px">详情</button></td><td><code>${escapeHTML(item.task_id.slice(0, 12))}</code></td><td>${escapeHTML(item.original_filename)}</td><td>${statusBadge(item.status)}</td><td>${escapeHTML(item.encryption_algorithm || '未完成')} / ${escapeHTML(item.integrity_status || '未验证')}</td><td>${formatBytes(item.source_size)}</td></tr><tr class="details-row"><td colspan="6"><div class="details">${taskDetails(item)}</div></td></tr>`).join('');
+  $(targetId).innerHTML = `<div class="table-wrap"><table><thead><tr><th></th><th>任务 ID</th><th>文件名</th><th>状态</th><th>加密 / 完整性</th><th>大小</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  $(targetId).querySelectorAll('.task-toggle').forEach(button => button.onclick = () => button.closest('tr').nextElementSibling.querySelector('.details').classList.toggle('open'));
+}
+async function refreshTasks() {
+  const data = await api('/api/v1/videos?limit=100&offset=0'); tasks = data.items || [];
+  $('videoCount').textContent = `共 ${data.total} 个任务 · 页面显示 ${tasks.length} 个`;
+  renderTaskTable(tasks, 'tasks');
+  $('overviewTasks').innerHTML = tasks.length ? `<div class="table-wrap"><table><thead><tr><th>文件</th><th>状态</th><th>更新时间</th></tr></thead><tbody>${tasks.slice(0, 5).map(item => `<tr><td>${escapeHTML(item.original_filename)}</td><td>${statusBadge(item.status)}</td><td>${escapeHTML(item.updated_at)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">暂无任务</div>';
+  const completed = tasks.filter(item => item.status === 'completed');
+  $('task').innerHTML = `<option value="">请选择已完成任务</option>${completed.map(item => `<option value="${escapeHTML(item.task_id)}">${escapeHTML(item.task_id.slice(0, 12))} · ${escapeHTML(item.original_filename)}</option>`).join('')}`;
+  const security = window.lastSecurity;
+  renderMetrics(security, data);
+}
+function renderMetrics(summary, taskData) {
+  const values = [
+    ['已完成视频', summary?.completed_video_count ?? '-', '来自安全摘要'],
+    ['任务总数', taskData?.total ?? '-', '视频任务记录'],
+    ['审计事件', summary?.audit_event_count ?? '-', 'SQLite 记录'],
+    ['失败事件', summary?.failure_count ?? '-', '任务或检索失败']
+  ];
+  $('overviewMetrics').innerHTML = values.map(([label, value, foot]) => `<div class="card"><div class="metric-label">${label}</div><div class="metric-value">${escapeHTML(value)}</div><div class="metric-foot">${foot}</div></div>`).join('');
+}
+async function refreshSecurity() {
+  const summary = await api('/api/v1/security/summary'); window.lastSecurity = summary;
+  $('securityDetails').innerHTML = `<div class="security-list"><div class="security-row"><strong>数据加密</strong><span>${escapeHTML(summary.encryption)}</span></div><div class="security-row"><strong>分片认证</strong><span>${escapeHTML(summary.authentication)}</span></div><div class="security-row"><strong>恢复完整性</strong><span>${escapeHTML(summary.integrity_check)}</span></div><div class="security-row"><strong>Manifest 认证</strong><span>${escapeHTML(summary.manifest_authentication)}</span></div><div class="security-row"><strong>身份认证</strong><span>${summary.authentication_required ? '已启用' : '未启用，仅限本机演示'}</span></div></div>`;
+  renderMetrics(summary, {total: tasks.length});
+}
+function renderAudit(items, targetId, compact = false) {
+  if (!items.length) { $(targetId).innerHTML = '<div class="empty">暂无审计记录</div>'; return; }
+  $(targetId).innerHTML = `<div class="table-wrap"><table><thead><tr><th>时间</th><th>事件</th><th>任务</th><th>详情</th></tr></thead><tbody>${items.slice(0, compact ? 5 : items.length).map(item => `<tr><td>${escapeHTML(item.created_at)}</td><td>${escapeHTML(item.event_type)}</td><td><code>${escapeHTML((item.task_id || '-').slice(0, 12))}</code></td><td>${escapeHTML(item.detail || '-')}</td></tr>`).join('')}</tbody></table></div>`;
+}
+async function refreshAudit() {
+  const query = currentAuditFilter ? `&task_id=${encodeURIComponent(currentAuditFilter)}` : '';
+  const data = await api(`/api/v1/audit?limit=50&offset=0${query}`);
+  renderAudit(data.items || [], 'auditTable'); renderAudit(data.items || [], 'overviewAudit', true);
 }
 async function checkHealth() {
-  try { await api('/health'); show('health', '后端运行正常 · 本机演示模式', 'success'); } catch (e) { show('health', e.message, 'error'); }
+  try { await api('/health'); $('health').className = 'health'; $('health').innerHTML = '<span class="dot"></span><span>服务运行正常 · 本机模式</span>'; }
+  catch (error) { $('health').className = 'health offline'; $('health').innerHTML = `<span class="dot"></span><span>${escapeHTML(error.message)}</span>`; }
 }
 $('uploadBtn').onclick = async () => {
-  const file = $('video').files[0]; if (!file) return show('uploadStatus', '请选择视频文件', 'error');
-  const form = new FormData(); form.append('file', file); $('uploadBtn').disabled = true; show('uploadStatus', '正在上传和加密...');
-  try { const task = await api('/api/v1/videos', { method: 'POST', body: form }); show('uploadStatus', `任务 ${task.task_id}：${task.status}`, task.status === 'completed' ? 'success' : 'error'); await refresh(); }
-  catch (e) { show('uploadStatus', e.message, 'error'); } finally { $('uploadBtn').disabled = false; }
+  const file = $('video').files[0]; if (!file) return showStatus('uploadStatus', '请选择视频文件', 'error');
+  const form = new FormData(); form.append('file', file); $('uploadBtn').disabled = true; showStatus('uploadStatus', '正在上传、校验和加密，请稍候...');
+  try { const task = await api('/api/v1/videos', {method: 'POST', body: form}); const seconds = task.processing_metrics?.total_seconds; showStatus('uploadStatus', `任务 ${task.task_id}：${task.status}${seconds != null ? `，处理耗时 ${seconds} 秒` : ''}`, task.status === 'completed' ? 'success' : 'error'); await refreshTasks(); await refreshSecurity(); await refreshAudit(); }
+  catch (error) { showStatus('uploadStatus', error.message, 'error'); } finally { $('uploadBtn').disabled = false; }
 };
 $('searchBtn').onclick = async () => {
-  const task = $('task').value, file = $('query').files[0]; if (!task || !file) return show('searchStatus', '请选择已完成任务和授权图片', 'error');
-  const form = new FormData(); form.append('query_image', file); $('searchBtn').disabled = true; show('searchStatus', '正在恢复、检测和检索...');
-  try { const data = await api(`/api/v1/videos/${task}/search?top_k=${encodeURIComponent($('topK').value)}`, { method: 'POST', body: form }); show('searchStatus', `完成：${data.results.length} 条结果。${data.similarity_note}`, 'success'); renderResults(data.results); }
-  catch (e) { show('searchStatus', e.message, 'error'); $('results').textContent = '没有可展示的结果'; } finally { $('searchBtn').disabled = false; }
+  const task = $('task').value, file = $('query').files[0], topK = Number($('topK').value);
+  if (!task || !file) return showStatus('searchStatus', '请选择已完成任务和授权图片', 'error');
+  if (!Number.isInteger(topK) || topK < 1 || topK > 100) return showStatus('searchStatus', '返回数量必须是 1 到 100 的整数', 'error');
+  const form = new FormData(); form.append('query_image', file); $('searchBtn').disabled = true; showStatus('searchStatus', '正在恢复、校验、检测和检索，请稍候...');
+  try { const data = await api(`/api/v1/videos/${encodeURIComponent(task)}/search?top_k=${topK}`, {method: 'POST', body: form}); const seconds = data.timings?.total_seconds; showStatus('searchStatus', `完成：${data.results.length} 条结果${seconds != null ? `，处理耗时 ${seconds} 秒` : ''}。${data.similarity_note}`, 'success'); renderResults(data.results || []); await refreshSecurity(); await refreshAudit(); }
+  catch (error) { showStatus('searchStatus', error.message, 'error'); $('results').innerHTML = '<div class="empty">没有可展示的结果</div>'; } finally { $('searchBtn').disabled = false; }
 };
-function renderResults(rows) { if (!rows.length) return $('results').textContent = '没有达到条件的候选'; $('results').innerHTML = `<table><tr><th>候选</th><th>帧号</th><th>时间</th><th>相似度</th></tr>${rows.map(row => `<tr><td><code>${row.candidate_id}</code></td><td>${row.frame_index}</td><td>${row.timestamp_seconds.toFixed(3)} s</td><td>${row.similarity.toFixed(6)}</td></tr>`).join('')}</table>`; }
-$('refreshBtn').onclick = () => refresh().catch(e => show('tasks', e.message, 'error'));
-checkHealth(); refresh().catch(e => show('tasks', e.message, 'error'));
+function renderResults(rows) { if (!rows.length) { $('results').innerHTML = '<div class="empty">没有达到条件的候选</div>'; return; } $('results').innerHTML = `<div class="result-list">${rows.map(row => `<div class="result-item"><div><strong><code>${escapeHTML(row.candidate_id)}</code></strong><span class="muted">帧 ${escapeHTML(row.frame_index)} · ${Number(row.timestamp_seconds).toFixed(3)} 秒</span></div><div class="result-score">${Number(row.similarity).toFixed(6)}</div></div>`).join('')}</div>`; }
+document.querySelectorAll('.nav button').forEach(button => button.onclick = () => setView(button.dataset.view));
+document.querySelectorAll('[data-go]').forEach(button => button.onclick = () => setView(button.dataset.go));
+$('overviewRefresh').onclick = () => Promise.all([refreshTasks(), refreshSecurity(), refreshAudit(), checkHealth()]);
+$('videoRefresh').onclick = () => refreshTasks().catch(error => renderError('tasks', error));
+$('securityRefresh').onclick = () => refreshSecurity().catch(error => renderError('securityDetails', error));
+$('auditRefresh').onclick = () => refreshAudit().catch(error => renderError('auditTable', error));
+$('auditFilter').onclick = () => { currentAuditFilter = $('auditTask').value.trim(); refreshAudit().catch(error => renderError('auditTable', error)); };
+checkHealth();
+Promise.all([refreshTasks(), refreshSecurity(), refreshAudit()]).catch(error => renderError('overviewTasks', error));
 </script>
 </body>
 </html>

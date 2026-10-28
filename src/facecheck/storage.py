@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import re
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -63,6 +64,7 @@ def store_encrypted_video(
     chunk_size: int,
     key_version: str,
     video_id: Optional[str] = None,
+    stats: Optional[Dict[str, float]] = None,
 ) -> StoredVideo:
     if not source.is_file():
         raise StorageError(f"source video does not exist: {source}")
@@ -78,16 +80,42 @@ def store_encrypted_video(
     chunks_directory.mkdir(parents=True)
     chunk_records: List[Dict[str, object]] = []
     try:
-        for chunk in iter_file_chunks(source, chunk_size):
+        iterator = iter_file_chunks(source, chunk_size)
+        while True:
+            read_started = time.perf_counter()
+            try:
+                chunk = next(iterator)
+            except StopIteration:
+                break
+            if stats is not None:
+                stats["file_read_seconds"] = stats.get("file_read_seconds", 0.0) + (
+                    time.perf_counter() - read_started
+                )
+            crypto_stats: Dict[str, float] = {}
             encrypted = sm4_encrypt(
                 chunk.data,
                 encryption_key,
                 mac_key,
                 associated_data=_context(video_id, chunk.index, key_version),
+                stats=crypto_stats,
             )
+            if stats is not None:
+                for name, value in crypto_stats.items():
+                    stats[name] = stats.get(name, 0.0) + value
+            write_started = time.perf_counter()
             path = _chunk_path(directory, chunk.index)
             path.write_bytes(encrypted)
+            if stats is not None:
+                stats["ciphertext_write_seconds"] = stats.get(
+                    "ciphertext_write_seconds", 0.0
+                ) + (time.perf_counter() - write_started)
             chunk_records.append({"index": chunk.index, "size": chunk.size, "file": path.name})
+        digest_started = time.perf_counter()
+        source_digest = _digest(source)
+        if stats is not None:
+            stats["source_sha256_seconds"] = stats.get(
+                "source_sha256_seconds", 0.0
+            ) + (time.perf_counter() - digest_started)
         manifest = {
             "version": MANIFEST_VERSION,
             "video_id": video_id,
@@ -95,7 +123,7 @@ def store_encrypted_video(
             "chunk_size": chunk_size,
             "chunk_count": len(chunk_records),
             "source_size": source.stat().st_size,
-            "source_sha256": _digest(source),
+            "source_sha256": source_digest,
             "chunks": chunk_records,
         }
         (directory / MANIFEST_NAME).write_text(
@@ -119,6 +147,7 @@ def restore_encrypted_video(
     destination: Path,
     encryption_key: bytes,
     mac_key: bytes,
+    stats: Optional[Dict[str, float]] = None,
 ) -> Path:
     manifest_path = stored_directory / MANIFEST_NAME
     chunks_directory = stored_directory / CHUNKS_DIR_NAME
@@ -194,16 +223,38 @@ def restore_encrypted_video(
                 chunk_path = _chunk_path(stored_directory, index)
                 if not chunk_path.is_file():
                     raise StorageError(f"chunk is missing: {chunk_path}")
+                read_started = time.perf_counter()
+                encrypted = chunk_path.read_bytes()
+                if stats is not None:
+                    stats["ciphertext_read_seconds"] = stats.get(
+                        "ciphertext_read_seconds", 0.0
+                    ) + (time.perf_counter() - read_started)
+                crypto_stats: Dict[str, float] = {}
                 plaintext = sm4_decrypt(
-                    chunk_path.read_bytes(),
+                    encrypted,
                     encryption_key,
                     mac_key,
                     associated_data=_context(video_id, index, key_version),
+                    stats=crypto_stats,
                 )
+                if stats is not None:
+                    for name, value in crypto_stats.items():
+                        stats[name] = stats.get(name, 0.0) + value
                 if len(plaintext) != record["size"]:
                     raise StorageError(f"chunk size mismatch: {index}")
+                write_started = time.perf_counter()
                 output.write(plaintext)
-        if temporary.stat().st_size != expected_size or _digest(temporary) != expected_digest:
+                if stats is not None:
+                    stats["plaintext_write_seconds"] = stats.get(
+                        "plaintext_write_seconds", 0.0
+                    ) + (time.perf_counter() - write_started)
+        digest_started = time.perf_counter()
+        restored_digest = _digest(temporary)
+        if stats is not None:
+            stats["sha256_seconds"] = stats.get("sha256_seconds", 0.0) + (
+                time.perf_counter() - digest_started
+            )
+        if temporary.stat().st_size != expected_size or restored_digest != expected_digest:
             raise StorageError("restored video integrity check failed")
         os.replace(temporary, destination)
     except Exception:
