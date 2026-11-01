@@ -7,7 +7,12 @@ import numpy as np
 import pytest
 
 from facecheck.chunks import count_file_chunks, iter_file_chunks
-from facecheck.storage import StorageError, restore_encrypted_video, store_encrypted_video
+from facecheck.storage import (
+    StorageError,
+    restore_encrypted_video,
+    rotate_encrypted_video_key,
+    store_encrypted_video,
+)
 from facecheck.video import VideoProcessingError, extract_frames, read_video_info
 
 
@@ -93,6 +98,7 @@ def test_encrypted_storage_restores_identical_file(tmp_path: Path) -> None:
     assert hashlib.sha256(restored.read_bytes()).digest() == hashlib.sha256(source.read_bytes()).digest()
     manifest = json.loads((stored.directory / "manifest.json").read_text())
     assert manifest["chunk_count"] > 1
+    assert manifest["key_derivation"] == "sm3-kdf-v1"
     assert "encryption_key" not in manifest
     assert "mac_key" not in manifest
 
@@ -134,6 +140,53 @@ def test_storage_stats_are_optional_and_do_not_change_round_trip(tmp_path: Path)
         and "independent-mac-key" not in str(value)
         for value in [*stats.values(), *restore_stats.values()]
     )
+
+
+def test_parallel_chunk_workers_preserve_authenticated_round_trip(tmp_path: Path) -> None:
+    source = tmp_path / "parallel-source.bin"
+    source.write_bytes(bytes(range(256)) * 4096)
+    key = b"0123456789abcdef"
+    mac = b"parallel-mac-key"
+    stored = store_encrypted_video(
+        source, tmp_path / "parallel-storage", key, mac,
+        chunk_size=4096, key_version="parallel-v1", video_id="parallel-video",
+        workers=2,
+    )
+    restored = restore_encrypted_video(
+        stored.directory, tmp_path / "parallel-restored.bin", key, mac, workers=2
+    )
+    assert restored.read_bytes() == source.read_bytes()
+    manifest = json.loads((stored.directory / "manifest.json").read_text())
+    assert [row["index"] for row in manifest["chunks"]] == list(range(manifest["chunk_count"]))
+
+
+def test_key_rotation_preserves_original_and_rejects_old_key(tmp_path: Path) -> None:
+    source = tmp_path / "rotate-source.bin"
+    source.write_bytes(bytes(range(251)) * 20)
+    old_key, old_mac = b"0123456789abcdef", b"old-mac-key"
+    new_key, new_mac = b"fedcba9876543210", b"new-mac-key"
+    original = store_encrypted_video(
+        source, tmp_path / "original", old_key, old_mac,
+        chunk_size=100, key_version="key-v1", video_id="rotation-original",
+    )
+    rotated = rotate_encrypted_video_key(
+        original.directory, tmp_path / "rotated", old_key, old_mac,
+        new_key, new_mac, new_key_version="key-v2", workers=2,
+        video_id="rotation-new",
+    )
+    restored = restore_encrypted_video(
+        rotated.directory, tmp_path / "rotated-restored.bin", new_key, new_mac,
+    )
+    assert restored.read_bytes() == source.read_bytes()
+    assert json.loads((rotated.directory / "manifest.json").read_text())["key_version"] == "key-v2"
+    with pytest.raises(ValueError, match="authentication failed"):
+        restore_encrypted_video(
+            rotated.directory, tmp_path / "wrong-key.bin", old_key, old_mac,
+        )
+    original_restored = restore_encrypted_video(
+        original.directory, tmp_path / "original-restored.bin", old_key, old_mac,
+    )
+    assert original_restored.read_bytes() == source.read_bytes()
 
 
 def test_empty_file_round_trip_and_existing_destination_is_rejected(tmp_path: Path) -> None:

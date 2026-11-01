@@ -10,6 +10,8 @@ from facecheck.crypto import (
     sm2_sign,
     sm2_verify,
     sm3_digest,
+    sm3_kdf,
+    derive_storage_keys,
     sm4_decrypt,
     sm4_encrypt,
 )
@@ -19,6 +21,18 @@ def test_sm3_standard_vector_abc() -> None:
     assert sm3_digest(b"abc").hex() == (
         "66c7f0f462eeedd9d1f2d46bdc10e4e24167c4875cf2f7a2297da02b8f4ba8e0"
     )
+
+
+def test_sm3_kdf_is_deterministic_and_version_bound() -> None:
+    master = b"0123456789abcdef"
+    first = sm3_kdf(master, b"context-v1", 48)
+    assert first == sm3_kdf(master, b"context-v1", 48)
+    assert first != sm3_kdf(master, b"context-v2", 48)
+    assert len(first) == 48
+    encryption_a, mac_a = derive_storage_keys(master, b"mac-master", "v1")
+    encryption_b, mac_b = derive_storage_keys(master, b"mac-master", "v2")
+    assert encryption_a != encryption_b
+    assert mac_a != mac_b
 
 
 def test_sm4_standard_vector() -> None:

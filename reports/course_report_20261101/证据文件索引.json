@@ -1,0 +1,242 @@
+[
+  {
+    "label": "arc_test",
+    "path": "data/ytf/experiments/ytf_arcface_test_20261101/metrics.json",
+    "sha256": "9cc5750db413c869677bde957c4e7c0d74b6bc43c8fce18b62f756d4c21bd9b3"
+  },
+  {
+    "label": "arc_analysis",
+    "path": "data/ytf/experiments/ytf_arcface_test_20261101/analysis.json",
+    "sha256": "20ce163848b9ad9359db0964815873b8a7346a14067e7635e7b83c0c775c3d89"
+  },
+  {
+    "label": "arc_config",
+    "path": "data/ytf/experiments/ytf_arcface_test_20261101/config.json",
+    "sha256": "27b4ee0cb8c7eeef464abfff3bb4c592430a7ad3eabf123ebd0fd2369ae81365"
+  },
+  {
+    "label": "arc_validation",
+    "path": "data/ytf/experiments/ytf_arcface_test_20261101/validation.json",
+    "sha256": "e8fafed07a90c79d7d7269dc066c3a1b945f57ab122840e44e3467848e903aa7"
+  },
+  {
+    "label": "arc_selection",
+    "path": "data/ytf/experiments/ytf_arcface_w600k_r50_20261101/selection_full_plaintext/metrics.json",
+    "sha256": "20792a8f55067465ededb31642d04dd1bc3e219b76fce5edea62c24798323c80"
+  },
+  {
+    "label": "sface_full",
+    "path": "data/ytf/experiments/ytf_full_run_02/metrics.json",
+    "sha256": "23fee0363a43e4d1f5079c87142702d4aade5aebccdbf11541a5b8f621f9d5d4"
+  },
+  {
+    "label": "sample100",
+    "path": "data/ytf/experiments/ytf_models_sample_100_20261101/metrics.json",
+    "sha256": "d2dfb033a757145e2951913ea866526ad776f90c622398be01ff283eb3e54e06"
+  },
+  {
+    "label": "gallery_failure",
+    "path": "data/ytf/experiments/ytf_gallery_quality_20261101/selection/metrics.json",
+    "sha256": "f13eb73b80333541695173c1ceac8e42ea1e4fedb1c0be804f35700bac1d85e1"
+  },
+  {
+    "label": "native_initial",
+    "path": "results/indicator_benchmark_20261031_native_final.json",
+    "sha256": "9660f103bae0303ebf88da89bad0b9f733fcaf5d3589b52314dd5a804d29e9a1"
+  },
+  {
+    "label": "optimized",
+    "path": "results/indicator_benchmark_20261101_sm4_optimized.json",
+    "sha256": "7edd80eb75a4cda0ea637c37f325ae7870e6cc9ef55fcaca8e643374521c640a"
+  },
+  {
+    "label": "final",
+    "path": "results/indicator_benchmark_20261101_sm4_final.json",
+    "sha256": "2eea4bf449336ae5e5388c63e9889af644429d27cb49d348587c5bb31b6ed5c3"
+  },
+  {
+    "label": "original",
+    "path": "results/indicator_benchmark_20261031.json",
+    "sha256": "4290c493d7b5b8be06d57727a498de0915f7c67cbdd5d57a16d92c44a9b329b9"
+  },
+  {
+    "label": "cloud_validation",
+    "path": "results/cloud_validation_20261101_v2.json",
+    "sha256": "7a2dc668729f87ff439aff8be13d17210ce2d840efa7cc05314cf889132e694b"
+  },
+  {
+    "label": "project_review",
+    "path": "results/facecheck_review_20261101.json",
+    "sha256": "1c5702ba1eb066aec134a59ea197000254712291564c1249cd6a8cd95933400d"
+  },
+  {
+    "label": "audit_review",
+    "path": "results/facecheck_review_20261101_audit.json",
+    "sha256": "e4579570b14f58108610d83d01a29f0cc944b5892610588b3dc5adf53966a4eb"
+  },
+  {
+    "label": "audit_integrity_design",
+    "path": "docs/audit_integrity_20261101.md",
+    "sha256": "5bfe3f0ba5007b85efc0579ceb5d49d5c352fa820b1f98c92b635c39a9a9d27a"
+  },
+  {
+    "label": "audit_database",
+    "path": "src/facecheck/database.py",
+    "sha256": "ea396a4b21cd40c0ed347b00417f81cf7ff4b6552941cb5427a44c287dcc960d"
+  },
+  {
+    "label": "audit_api",
+    "path": "src/facecheck/api.py",
+    "sha256": "9ab73beb242bdd6407fb57517957b65713a0bfc390f466fc976d12003ac4ea83"
+  },
+  {
+    "label": "audit_platform_api",
+    "path": "src/facecheck/platform_api.py",
+    "sha256": "5725d7492395beba4ca9ba40d78ef8ab805a8a14f7d5a277512a3a03ea150e12"
+  },
+  {
+    "label": "audit_catalog",
+    "path": "src/facecheck/platform_catalog.py",
+    "sha256": "eb54edfe2ec88e6c95ed37478c03f28dca9a04c286d570e8d6f21ade426ffd80"
+  },
+  {
+    "label": "audit_tests",
+    "path": "tests/test_audit_chain.py",
+    "sha256": "9985211f116060b4e02951540340bb5c5cc024c559ffea23f2081c85e6813feb"
+  },
+  {
+    "label": "indicator_evaluator",
+    "path": "scripts/evaluate_indicators.py",
+    "sha256": "2acf6164279016ce3e6e93e80d658ef38a776a88d5769b552b5fc01483806289"
+  },
+  {
+    "label": "arc_yunet085_smoke_metrics",
+    "path": "data/ytf/experiments/ytf_arcface_yunet085_smoke20_20261101/metrics.json",
+    "sha256": "7d41ee1461bccefa307700af8d2d1da7e9b2816ac5c0b384952a89f392e7bd80"
+  },
+  {
+    "label": "arc_yunet085_smoke_validation",
+    "path": "data/ytf/experiments/ytf_arcface_yunet085_smoke20_20261101/validation.json",
+    "sha256": "c4394eea68342b46cec86788d919ed53e0788b4bad184805eb11ffd7353d21ef"
+  },
+  {
+    "label": "arc_yunet085_smoke_config",
+    "path": "data/ytf/experiments/ytf_arcface_yunet085_smoke20_20261101/config.json",
+    "sha256": "633d1c6370af18ceb7174d4367b44fdafb54382a0fa8e73781852241fe72989b"
+  },
+  {
+    "label": "arc_yunet085_smoke_status",
+    "path": "data/ytf/experiments/ytf_arcface_yunet085_smoke20_20261101/run_status.json",
+    "sha256": "2907fd0e8346e1e187777f6e96375b3d292f22c1a941c2f81f4ac5cdf2a75270"
+  },
+  {
+    "label": "arc_yunet085_smoke_identities",
+    "path": "data/ytf/experiments/ytf_arcface_yunet085_smoke20_20261101/identities.json",
+    "sha256": "0938d45471f25fd16cc3758d809f4d4617e1963acc1b4c387bfbe570fdf076d0"
+  },
+  {
+    "label": "arc_yunet085_smoke_features",
+    "path": "data/ytf/experiments/ytf_arcface_yunet085_smoke20_20261101/feature_summary.csv",
+    "sha256": "b159b981dc30f70b8aa0902332154434812e4814cee2e913896affc1d011754d"
+  },
+  {
+    "label": "arc_yunet085_smoke_pairs",
+    "path": "data/ytf/experiments/ytf_arcface_yunet085_smoke20_20261101/candidate_pairs.csv",
+    "sha256": "b4913f41a1abef7915143b37927d25986429fa4a3607dcb71394081ef38c8238"
+  },
+  {
+    "label": "arc_yunet085_smoke_query_comparison",
+    "path": "data/ytf/experiments/ytf_arcface_yunet085_smoke20_20261101/query_comparison.csv",
+    "sha256": "f8f6af582fa2736c4cbdfbbe2f3ab4806f255765d03ffb41ce30ed77e23721b8"
+  },
+  {
+    "label": "arc_yunet085_smoke_report",
+    "path": "data/ytf/experiments/ytf_arcface_yunet085_smoke20_20261101/report.md",
+    "sha256": "63ab153334d55ccdf18aae667aafe03d6996a9cc211b1ec00f8c868d64eb7777"
+  },
+  {
+    "label": "arc_yunet085_smoke_source_hashes",
+    "path": "data/ytf/experiments/ytf_arcface_yunet085_smoke20_20261101/source_sha256.json",
+    "sha256": "805c530f682784d38a0773f9629f36f8b090bb7cd05a9ff058e5c2f7adccbe26"
+  },
+  {
+    "label": "arc_yunet085_smoke_script",
+    "path": "scripts/run_ytf_arcface_detector_smoke.py",
+    "sha256": "e02f3f9640841c993bfce77c58bba37e12d0d6da45d06df7c0986af34694e892"
+  },
+  {
+    "label": "optimization_roadmap",
+    "path": "docs/optimization_roadmap_20261101.md",
+    "sha256": "151d75f46e216d4d8d4d31a8392b98130f22ea48c893c034127d7d2fbd027c5c"
+  },
+  {
+    "label": "indicator_gap_analysis",
+    "path": "docs/indicator_gap_analysis.md",
+    "sha256": "2a1ef54271a68efbfd225d1b4566763e2c3286dcbcac275b6586515d1c7375e2"
+  },
+  {
+    "label": "arc_yunet085_smoke_comparison",
+    "path": "data/ytf/experiments/ytf_arcface_yunet085_smoke20_20261101/comparison.json",
+    "sha256": "fb29ba10d18ca9306c546ef55d2d9529a231c33cb606153838fd61ae75e161cf"
+  },
+  {
+    "label": "arc_yunet085_smoke_failures",
+    "path": "data/ytf/experiments/ytf_arcface_yunet085_smoke20_20261101/feature_failures.csv",
+    "sha256": "69236739bc51c1676b98e32ff458776e499c67d9bb5eaa30d5367063c3b67ffd"
+  },
+  {
+    "label": "phase2_key_envelope_adr",
+    "path": "docs/adr/0002-video-key-envelope-and-rotation.md",
+    "sha256": "c9e112c05b5f9d73db9547672aaf8ce1afc44fb0faca1f8fcc06c348dfcb1f8a"
+  },
+  {
+    "label": "phase2_key_management_smoke",
+    "path": "results/phase2_key_envelope_smoke_20261102_v2.json",
+    "sha256": "e27ee2b8b4559b382669599e1508db90e6239a1fe73ccafe81053fa9c371c138"
+  },
+  {
+    "label": "phase2_indicator_review_current",
+    "path": "results/facecheck_review_20261102_phase2_v3.json",
+    "sha256": "cdb9297e843639dcd1552cf02ca01e16204a8aa9075e5840a5d1f33effd67487"
+  },
+  {
+    "label": "phase2_key_management_source",
+    "path": "src/facecheck/key_management.py",
+    "sha256": "1cab80685d2ee720e6b64d7218832043b448e5bf94f78395c18506fc0948e8e7"
+  },
+  {
+    "label": "phase2_key_rotation_source",
+    "path": "src/facecheck/key_rotation.py",
+    "sha256": "f807fe23e6107a17bf7a1de66ebd6a767dc5ee5e28044457711df8afcc090d41"
+  },
+  {
+    "label": "phase2_storage_source",
+    "path": "src/facecheck/storage.py",
+    "sha256": "dae2e08e926db328afc66ec3bc7ae790e8adb7657fd3fc1a543c0caecdcd54cc"
+  },
+  {
+    "label": "phase2_crypto_source",
+    "path": "src/facecheck/crypto.py",
+    "sha256": "c5eee30f01b73f6f35c1d2f774c937ebe3cec8b928b680b0a6e8de699add9c25"
+  },
+  {
+    "label": "phase2_key_envelope_tests",
+    "path": "tests/test_storage_key_envelope.py",
+    "sha256": "49124e3d4d8059fbb6a0daed8b52523041330b5782645a95665e321dc156d85f"
+  },
+  {
+    "label": "phase2_legacy_rotation_test",
+    "path": "tests/test_video_pipeline.py",
+    "sha256": "9b8b453c9703b55e01ac22a670b384fadf4fb81a4d37fd5a2bc4027c7dbd160f"
+  },
+  {
+    "label": "indicator_evaluator_tests",
+    "path": "tests/test_indicator_evaluation.py",
+    "sha256": "9c2cf26eb9ada9f6d4f95ab7c13f51e6af577bac7d3452a7111fa0de00d55d13"
+  },
+  {
+    "label": "phase2_readme",
+    "path": "README.md",
+    "sha256": "f900c082a778c9458088a28f5dee200e444a67782eec66abb0dc9628ef31fbe7"
+  }
+]

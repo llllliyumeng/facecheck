@@ -1,0 +1,52 @@
+{
+  "protocol": "facecheck-stage2-key-envelope-smoke-v1",
+  "created_at_utc": "2026-11-01T16:37:37.088078+00:00",
+  "status": "passed",
+  "test_runs": [
+    {
+      "command": ".venv/bin/python -m pytest -q tests/test_storage_key_envelope.py tests/test_video_pipeline.py::test_key_rotation_preserves_original_and_rejects_old_key",
+      "exit_code": 0,
+      "tests_passed": 6,
+      "scope": "small synthetic crypto/storage functional tests only"
+    },
+    {
+      "command": ".venv/bin/python -m pytest -q tests/test_indicator_evaluation.py",
+      "exit_code": 0,
+      "tests_passed": 2,
+      "scope": "small indicator-report regression tests"
+    }
+  ],
+  "runtime_environment": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "machine": "arm64",
+    "python": "3.9.6 (default, May 22 2026, 11:13:45) \n[Clang 21.0.0 (clang-2100.1.1.101)]",
+    "gmssl_python_version": "3.2.2"
+  },
+  "checks": [
+    "v1 store and restore remain compatible",
+    "v2 SM2 key envelope wraps per-video key material and restores exact source bytes",
+    "v2 manifest HMAC rejects modified metadata before publishing plaintext",
+    "wrong expected video ID and wrong recipient key ID fail closed",
+    "modified chunk authentication fails and removes the partial restore file",
+    "rewrap to a distinct SM2 key preserves chunk ciphertext and leaves the source object readable",
+    "file-backed batch journal records a failure and resumes the object without reprocessing a completed object",
+    "indicator evaluator keeps formal metric outcomes unchanged and reports the v2 prototype as partial"
+  ],
+  "implementation": {
+    "v2_default_for_service_uploads": false,
+    "production_kms_or_trusted_key_directory": false,
+    "database_reference_switch": false,
+    "cache_backup_and_global_revocation": false,
+    "cross_library_sm2_ciphertext_interoperability": false,
+    "files_sha256": {
+      "src/facecheck/crypto.py": "c5eee30f01b73f6f35c1d2f774c937ebe3cec8b928b680b0a6e8de699add9c25",
+      "src/facecheck/key_management.py": "1cab80685d2ee720e6b64d7218832043b448e5bf94f78395c18506fc0948e8e7",
+      "src/facecheck/key_rotation.py": "f807fe23e6107a17bf7a1de66ebd6a767dc5ee5e28044457711df8afcc090d41",
+      "src/facecheck/storage.py": "dae2e08e926db328afc66ec3bc7ae790e8adb7657fd3fc1a543c0caecdcd54cc",
+      "tests/test_storage_key_envelope.py": "49124e3d4d8059fbb6a0daed8b52523041330b5782645a95665e321dc156d85f",
+      "scripts/evaluate_indicators.py": "9999317a7acdb8ec85796200dfd995729dad52185da27e58312af232b8986bf6",
+      "tests/test_indicator_evaluation.py": "33148c0ccff6be0059e33a5803c871356fd89bcdcd75a75c00dc0f76874933cc"
+    }
+  },
+  "scope_note": "Correctness prototype evidence only. It does not prove production KMS lifecycle, global old-key invalidation, object-store durability, large-scale performance, or cross-library SM2 interoperability."
+}
