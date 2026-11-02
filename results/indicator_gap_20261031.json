@@ -1,0 +1,125 @@
+{
+  "protocol": "identity-disjoint-query-gallery",
+  "rows": [
+    {
+      "metric": "综合测试身份/查询规模",
+      "value": 1004,
+      "target": ">=10000 identities",
+      "status": "FAIL"
+    },
+    {
+      "metric": "明文 Top-1",
+      "value": "77.988% (783/1004); run_01: 77.888%",
+      "target": ">=95%",
+      "status": "FAIL"
+    },
+    {
+      "metric": "明文 TAR@FAR=1e-3",
+      "value": "78.6853% (395/502); FAR=0.001005956",
+      "target": ">=90%",
+      "status": "FAIL"
+    },
+    {
+      "metric": "密文域检索",
+      "value": "not implemented",
+      "target": "must be measured",
+      "status": "NOT_MEASURED"
+    },
+    {
+      "metric": "SM2 签名/验签吞吐",
+      "value": "not measured",
+      "target": ">=1000/500 ops/s",
+      "status": "NOT_MEASURED"
+    },
+    {
+      "metric": "1080p 单路加密与端到端时延",
+      "value": "not measured",
+      "target": "<=50 ms / <=2 s",
+      "status": "NOT_MEASURED"
+    },
+    {
+      "metric": "终端/分辨率/并发兼容性",
+      "value": "not measured",
+      "target": ">=3/5/10",
+      "status": "NOT_MEASURED"
+    },
+    {
+      "metric": "密钥轮换后旧密钥失效",
+      "value": "unit-tested",
+      "target": "100%",
+      "status": "PARTIAL"
+    },
+    {
+      "metric": "未授权解密成功率",
+      "value": "not measured",
+      "target": "<=0.1%",
+      "status": "NOT_MEASURED"
+    },
+    {
+      "metric": "篡改检出率",
+      "value": "unit-tested",
+      "target": ">=99.9%",
+      "status": "PARTIAL"
+    },
+    {
+      "metric": "接口成功率/日处理量/审计报告",
+      "value": "not measured",
+      "target": "99.5% / 10万段 / 99%",
+      "status": "NOT_MEASURED"
+    },
+    {
+      "metric": "审计日志完整率",
+      "value": "not measured",
+      "target": ">=99.9%",
+      "status": "NOT_MEASURED"
+    },
+    {
+      "metric": "SM2 签名吞吐（实测）",
+      "value": 261.5799424390355,
+      "target": ">=1000 ops/s",
+      "status": "FAIL"
+    },
+    {
+      "metric": "SM2 验签吞吐（实测）",
+      "value": 131.3468738606685,
+      "target": ">=500 ops/s",
+      "status": "FAIL"
+    },
+    {
+      "metric": "SM4 加密吞吐（实测）",
+      "value": 33.40874481604344,
+      "target": ">=500 MB/s",
+      "status": "FAIL"
+    },
+    {
+      "metric": "SM4 解密吞吐（实测）",
+      "value": 35.667866059845444,
+      "target": ">=500 MB/s",
+      "status": "FAIL"
+    },
+    {
+      "metric": "1080p 样本加密时延（4线程）",
+      "value": 38.683457999999504,
+      "target": "<=50 ms",
+      "status": "PASS"
+    },
+    {
+      "metric": "10路本地 API 调用成功率",
+      "value": 1.0,
+      "target": ">=99.5%",
+      "status": "PASS"
+    },
+    {
+      "metric": "随机篡改检出率（100次）",
+      "value": 1.0,
+      "target": ">=99.9%",
+      "status": "PASS"
+    },
+    {
+      "metric": "未授权解密成功率（100次）",
+      "value": 0.0,
+      "target": "<=0.1%",
+      "status": "PASS"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # 指标核对与验收边界
 
-本表根据正式 ArcFace test、登记 manifest、国密 benchmark、HTTPS 云端验证和阶段二小型功能核验更新。原始机器核对 `results/facecheck_review_20261101_audit.json` 和阶段二初版 `results/facecheck_review_20261102_phase2_v2.json` 保留为历史快照；当前状态见 `results/facecheck_review_20261102_phase2_v3.json`，其中保存输入文件 SHA-256，生成时不运行识别实验或密码 benchmark。
+本表根据正式 ArcFace test、登记 manifest、国密 benchmark、HTTPS 云端验证和阶段二小型功能核验更新。原始机器核对 `results/facecheck_review_20261101_audit.json` 和阶段二初版 `results/facecheck_review_20261102_phase2_v2.json` 保留为历史快照；当前状态见 `results/facecheck_review_20261102_phase2_v8.json`，其中保存输入文件 SHA-256，生成时不运行识别实验或密码 benchmark。
 
 状态定义：`PASS` 为当前测量达到目标；`FAIL` 为已知实际规模或分数低于目标；`PARTIAL` 为功能/单样本/小样本有证据但不符合目标验收口径；`NOT_IMPLEMENTED` 为无对应机制；`NOT_MEASURED` 为缺符合口径的测试。不能把 `encrypted_restore` 的认证解密恢复后检索称作密文域检索。
 
@@ -18,7 +18,7 @@
 | 1080p单路加密≤50 ms | 两帧合成1080p文件，`final`4线程中位数18.02 ms | PARTIAL | 未测持续真实码流、长视频或端侧最坏时延 |
 | 端到端平均响应≤2 s | HTTPS单样本冷启动4.9408 s；缓存命中0.4646 s | PARTIAL | 冷样本超时；冷/热各一次，未测总体均值、P95或并发检索 |
 | ≥3类终端、5分辨率、10路并发 | 本机5种合成分辨率成功；10个四帧HTTPS上传均成功 | PARTIAL | 缺3类真实终端及持续10路视频推理 |
-| 轮换后旧密钥失效率100% | 版本化派生、旧密钥拒绝测试、v1 单视频重加密、v2 可续跑文件批量 rewrap 原型 | PARTIAL | 小样本只验证新对象认证恢复和 journal 续跑；无数据库引用切换、KMS 全局撤销、缓存/备份/旧副本处置证明 |
+| 轮换后旧密钥失效率100% | v1 重加密、v2 rewrap、SQLite 持久化队列、数据库内引用/manifest 锚点事务切换、缓存清理及撤销门槛均有小样本原型 | PARTIAL | 单机 SQLite 不是生产分布式队列；真实 KMS/HSM、可信公钥目录部署、全部备份/灾备盘点、跨系统原子性和真实全局撤销未验收；100% 尚未证明 |
 | 未授权解密成功率≤0.1% | 100次错误密钥解密，成功0次 | PARTIAL | 仅是有限密码拒绝样本，不覆盖API越权、多租户和凭据失陷 |
 | 视频及特征篡改检出率≥99.9% | 100次随机视频分块篡改全部拒绝；缓存/视频定向篡改有功能验证 | PARTIAL | 未测特征索引总体检出率及大样本攻击集合 |
 | API成功率≥99.5% | 10个本地并发API请求和10个HTTPS合成上传均成功 | PARTIAL | 不代表长期服务可用率、持续负载或推理并发 |
@@ -30,9 +30,9 @@
 
 | 研究内容 | 状态 | 说明 |
 |---|---|---|
-| SM2/SM4数字信封 | 部分实现 | 新增 opt-in v2：每视频随机 SM4/MAC 主密钥材料、SM2 接收方封装、key ID 和 HMAC-SM3 manifest；Web/cloud 默认流程仍为 v1，暂无可信 KMS/公钥目录 |
+| SM2/SM4数字信封 | 部分实现 | opt-in v2：每视频随机 SM4/MAC 主密钥材料、SM2 接收方封装、key ID 和 HMAC-SM3 manifest；另有 SHA-256 pin 公钥目录和 provider adapter 接口，但没有可信生产部署/真实 KMS；Web/cloud 默认流程仍为 v1 |
 | 视频分块与选择性加密 | 部分实现 | 全视频字节分块认证加密已实现；编解码器感知选择性加密未实现 |
-| 密钥派生与轮换 | 部分实现 | v1 单视频重加密与 v2 file-backed 可恢复批量 rewrap 原型已实现；服务级任务/DB 切换、全局撤销和备份处置未实现 |
+| 密钥派生与轮换 | 部分实现 | v1 全量重加密、v2 rewrap、单机 SQLite 持久队列、DB 内引用和 manifest 锚点事务切换、缓存失效与撤销门槛已有原型；生产 KMS、分布式队列、外部备份清单及全局撤销未验收 |
 | 人像特征保护与可撤销模板 | 部分实现 | 特征缓存静态加密和认证已实现；可撤销、跨版本不可关联模板未实现 |
 | 密文安全索引与ANN | 未实现 | 当前服务端认证恢复后执行明文精确检索 |
 | 边缘—云轻量化推理 | 未实现 | 没有边缘设备部署与协同协议验收 |

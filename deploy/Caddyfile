@@ -1,0 +1,16 @@
+{$FACECHECK_DOMAIN} {
+    # Caddy obtains/renews TLS certificates for a resolvable public domain.
+    request_body {
+        max_size 52MB
+    }
+    reverse_proxy app:8000 {
+        # app has no published port; only this proxy reaches the trusted backend network.
+        header_up -Forwarded
+    }
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "no-referrer"
+        -Server
+    }
+}

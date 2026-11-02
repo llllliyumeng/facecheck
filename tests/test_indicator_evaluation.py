@@ -87,3 +87,26 @@ def test_key_management_smoke_test_runs_are_recognized_as_partial_evidence():
     assert "v2 per-video SM2 信封、单/批次 rewrap 原型" in rotation["value"]
     assert "file-backed journal" in rotation["note"]
     assert "file-backed 可恢复 batch rewrap 原型已实现" in rotation_research["note"]
+
+
+def test_rotation_control_smoke_updates_scope_without_claiming_global_revocation():
+    evidence = {
+        "status": "passed",
+        "execution": {"exit_code": 0, "tests_passed": 9},
+    }
+
+    report = evaluator.build_report(
+        {}, sources={"rotation_control_smoke": {"path": "rotation-smoke.json"}},
+        rotation_control_evidence=evidence,
+    )
+    rows = {row["metric"]: row for row in report["rows"]}
+    rotation = rows["密钥轮换后旧密钥失效"]
+    rotation_research = next(
+        row for row in report["research"] if row["area"] == "密钥派生与轮换"
+    )
+
+    assert rotation["status"] == "PARTIAL"
+    assert rotation["source"]["path"] == "rotation-smoke.json"
+    assert "SQLite 单机队列/DB 引用切换" in rotation["value"]
+    assert "旧密钥失效率 100% 尚未证明" in rotation["note"]
+    assert "分布式队列" in rotation_research["note"]

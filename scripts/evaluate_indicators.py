@@ -97,6 +97,7 @@ def build_report(
     security_benchmark: Optional[dict[str, Any]] = None,
     sources: Optional[dict[str, str]] = None,
     key_management_evidence: Optional[dict[str, Any]] = None,
+    rotation_control_evidence: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     benchmark = benchmark if isinstance(benchmark, dict) else {}
     manifest = manifest if isinstance(manifest, dict) else {}
@@ -105,6 +106,9 @@ def build_report(
     sources = sources if isinstance(sources, dict) else {}
     key_management_evidence = (
         key_management_evidence if isinstance(key_management_evidence, dict) else {}
+    )
+    rotation_control_evidence = (
+        rotation_control_evidence if isinstance(rotation_control_evidence, dict) else {}
     )
     execution = key_management_evidence.get("execution")
     test_runs = key_management_evidence.get("test_runs")
@@ -125,6 +129,27 @@ def build_report(
         execution_passed = False
     key_management_smoke_passed = (
         key_management_evidence.get("status") == "passed" and execution_passed
+    )
+    rotation_control_execution = rotation_control_evidence.get("execution")
+    rotation_control_test_runs = rotation_control_evidence.get("test_runs")
+    if isinstance(rotation_control_execution, dict):
+        rotation_control_execution_passed = (
+            _number(rotation_control_execution.get("tests_passed")) is not None
+            and _number(rotation_control_execution.get("exit_code")) == 0
+        )
+    elif isinstance(rotation_control_test_runs, list) and rotation_control_test_runs:
+        rotation_control_execution_passed = all(
+            isinstance(run, dict)
+            and _number(run.get("tests_passed")) is not None
+            and _number(run.get("tests_passed")) > 0
+            and _number(run.get("exit_code")) == 0
+            for run in rotation_control_test_runs
+        )
+    else:
+        rotation_control_execution_passed = False
+    rotation_control_smoke_passed = (
+        rotation_control_evidence.get("status") == "passed"
+        and rotation_control_execution_passed
     )
     rows: list[dict[str, Any]] = []
     plain = _at(metrics, "plaintext", default={})
@@ -242,18 +267,28 @@ def build_report(
     unauthorized_trials = _number(_at(security, "unauthorized_trials"))
     unauthorized_rate = _number(_at(security, "unauthorized_success_rate"))
     rotation_value = (
+        "v1 重加密、v2 rewrap、SQLite 单机队列/DB 引用切换、缓存清理和撤销门槛原型"
+        if rotation_control_smoke_passed else
         "v1 单视频重加密；v2 per-video SM2 信封、单/批次 rewrap 原型"
         if key_management_smoke_passed else "版本隔离与单视频迁移助手"
     )
     rotation_note = (
+        "小样本验证了 SQLite 持久队列、DB 内引用与 manifest 锚点事务切换、缓存清理和清单门槛；"
+        "这不是分布式队列或跨存储原子事务。未接入生产 KMS/HSM，外部备份完整性仍依赖运维清单，"
+        "没有真实全局撤销证明；旧密钥失效率 100% 尚未证明。"
+        if rotation_control_smoke_passed else
         "小样本验证了 file-backed journal 续跑和新目标完整性；仍未接入服务数据库/任务队列，"
         "没有 KMS、缓存/备份处置或全局旧密钥撤销证明。"
         if key_management_smoke_passed else
         "没有批量迁移清单、全局撤销或 KMS 轮换证明。"
     )
+    rotation_source_name = (
+        "rotation_control_smoke" if rotation_control_smoke_passed
+        else "key_management_smoke"
+    )
     _row(rows, "密钥轮换后旧密钥失效", rotation_value,
          "全量旧密钥失效率=100%", "PARTIAL",
-         sources.get("key_management_smoke", sources.get("code", "storage/key management")),
+         sources.get(rotation_source_name, sources.get("code", "storage/key management")),
          rotation_note)
     _row(rows, "未授权解密成功率",
          {"success_rate": unauthorized_rate, "trials": unauthorized_trials}, "≤0.1%",
@@ -284,11 +319,14 @@ def build_report(
 
     envelope_note = (
         "小样本验证了 opt-in v2 逐视频随机 key material、SM2 接收方封装和 HMAC-SM3 manifest；"
-        "Web/cloud 默认仍写 v1，暂无可信 KMS/公钥目录。"
+        "代码有 SHA-256 pin 公钥目录/provider adapter 接口，但无生产信任部署或 KMS；Web/cloud 默认仍写 v1。"
         if key_management_smoke_passed else
         "SM2 API 与 SM4 封装已存在；Web 主流程未使用逐视频 DEK/接收者公钥分发。"
     )
     rotation_research_note = (
+        "v1 重加密、v2 rewrap、单机 SQLite 队列、DB 内引用/manifest 锚点事务切换及缓存失效有原型；"
+        "生产 KMS/HSM、分布式队列、外部备份证明和真实全局撤销未验收。"
+        if rotation_control_smoke_passed else
         "v1 单视频重加密与 v2 file-backed 可恢复 batch rewrap 原型已实现；"
         "服务级任务/DB 切换、全局撤销及缓存和备份处置未实现。"
         if key_management_smoke_passed else
@@ -344,6 +382,8 @@ def main() -> None:
                         help="saved error-key/tamper trials; kept separate from throughput runs")
     parser.add_argument("--key-management-evidence", type=Path,
                         help="saved small functional verification of the v2 key-envelope prototype")
+    parser.add_argument("--rotation-control-evidence", type=Path,
+                        help="saved small functional verification of SQLite rotation control")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     input_paths = {
@@ -354,6 +394,7 @@ def main() -> None:
             "cloud_validation": args.cloud_validation,
             "security_benchmark": args.security_benchmark,
             "key_management_smoke": args.key_management_evidence,
+            "rotation_control_smoke": args.rotation_control_evidence,
         }.items() if path is not None
     }
     sources = {
@@ -367,7 +408,7 @@ def main() -> None:
         build_report(
             _load(args.metrics), _load(args.benchmark), _load(args.manifest),
             _load(args.cloud_validation), _load(args.security_benchmark), sources,
-            _load(args.key_management_evidence),
+            _load(args.key_management_evidence), _load(args.rotation_control_evidence),
         ),
         ensure_ascii=False, indent=2,
     ) + "\n"

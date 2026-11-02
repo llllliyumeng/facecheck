@@ -13,8 +13,13 @@ def sm3_digest(data: bytes) -> bytes:
 
 
 def sm3_hmac(key: bytes, data: bytes) -> bytes:
+    return sm3_hmac_parts(key, (data,))
+
+
+def sm3_hmac_parts(key: bytes, parts: tuple[bytes, ...]) -> bytes:
     authenticator = hmac.HMAC(key, hashes.SM3())
-    authenticator.update(data)
+    for part in parts:
+        authenticator.update(part)
     return authenticator.finalize()
 
 

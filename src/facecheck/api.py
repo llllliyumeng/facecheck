@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, Request
 from pydantic import BaseModel, ConfigDict
 
 from .database import TaskRepository
@@ -65,6 +65,8 @@ class AuditEventResponse(BaseModel):
     event_type: str
     created_at: str
     detail: Optional[str] = None
+    previous_hash: Optional[str] = None
+    event_hash: Optional[str] = None
 
 
 class AuditListResponse(BaseModel):
@@ -98,7 +100,7 @@ def create_router(repository: TaskRepository, service: VideoTaskService) -> APIR
         response_model_exclude_none=True,
         status_code=201,
     )
-    async def upload_video(file: UploadFile = File(...)) -> TaskResponse:
+    def upload_video(file: UploadFile = File(...)) -> TaskResponse:
         if not file.filename:
             raise HTTPException(status_code=400, detail="filename is required")
         size = 0
@@ -110,7 +112,7 @@ def create_router(repository: TaskRepository, service: VideoTaskService) -> APIR
             ) as temporary:
                 temporary_path = Path(temporary.name)
                 while True:
-                    block = await file.read(1024 * 1024)
+                    block = file.file.read(1024 * 1024)
                     if not block:
                         break
                     size += len(block)
@@ -128,7 +130,7 @@ def create_router(repository: TaskRepository, service: VideoTaskService) -> APIR
             )
             return task_response(result)
         finally:
-            await file.close()
+            file.file.close()
             if temporary_path is not None:
                 temporary_path.unlink(missing_ok=True)
 
@@ -189,7 +191,7 @@ def create_router(repository: TaskRepository, service: VideoTaskService) -> APIR
         )
 
     @router.get("/security/summary")
-    def security_summary() -> dict[str, object]:
+    def security_summary(request: Request) -> dict[str, object]:
         tasks = repository.list(100, 0)
         completed = [task for task in tasks if task["status"] == "completed"]
         failures = [
@@ -203,7 +205,11 @@ def create_router(repository: TaskRepository, service: VideoTaskService) -> APIR
             "authentication": "HMAC-SM3",
             "integrity_check": "chunk MAC + SHA-256",
             "manifest_authentication": "not independently authenticated",
-            "authentication_required": False,
+            "manifest_integrity_anchor": "new uploads anchored by SHA-256 in the trusted task database; cloud mode rejects unanchored objects; legacy local objects may be unanchored",
+            "authentication_required": request.app.state.security.enabled,
+            "authorization": "organization-level RBAC: admin/operator/auditor" if request.app.state.security.enabled else "disabled for local demo",
+            "deployment": request.app.state.security.deployment,
+            "protected_feature_cache": service.feature_store is not None,
             "completed_video_count": len(completed),
             "audit_event_count": repository.audit_count(),
             "failure_count": len(failures),
@@ -213,14 +219,14 @@ def create_router(repository: TaskRepository, service: VideoTaskService) -> APIR
         "/videos/{task_id}/search",
         response_model=FaceSearchResponse,
     )
-    async def search_video(
+    def search_video(
         task_id: str,
         query_image: UploadFile = File(...),
         top_k: int = Query(default=10, ge=1, le=100),
         min_similarity: Optional[float] = Query(default=None, ge=-1, le=1),
     ) -> FaceSearchResponse:
         try:
-            data = await query_image.read(MAX_QUERY_IMAGE_SIZE + 1)
+            data = query_image.file.read(MAX_QUERY_IMAGE_SIZE + 1)
             if len(data) > MAX_QUERY_IMAGE_SIZE:
                 raise HTTPException(status_code=413, detail="query image is too large")
             results = service.search_task(
@@ -248,6 +254,6 @@ def create_router(repository: TaskRepository, service: VideoTaskService) -> APIR
         except Exception as error:
             raise HTTPException(status_code=500, detail="face search failed") from error
         finally:
-            await query_image.close()
+            query_image.file.close()
 
     return router

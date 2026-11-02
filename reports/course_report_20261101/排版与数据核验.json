@@ -1,0 +1,37 @@
+{
+  "status": "not_passed",
+  "pagination": {
+    "total_pages": 83,
+    "front_pages": 7,
+    "body_start_physical_page": 8,
+    "body_pages": 74,
+    "reference_start_physical_page": 82,
+    "reference_pages": 2,
+    "short_pages": [
+      [
+        50,
+        94
+      ],
+      [
+        71,
+        75
+      ]
+    ]
+  },
+  "figures": 20,
+  "tables": 26,
+  "references": 15,
+  "template_font_names_preserved": null,
+  "normal_font_pt": null,
+  "normal_line_spacing": null,
+  "heading1_font_pt": null,
+  "evidence_index_entries_verified": 22,
+  "evidence_index_hashes_match": true,
+  "toc_page_numbers_match_pdf": true,
+  "text_outside_page_count": null,
+  "pdf_cjk_fonts": "not rechecked in this build",
+  "render_tool": "LibreOffice headless; isolated arm64 application",
+  "new_formal_experiments_run": 0,
+  "production_code_modified_for_report": false,
+  "verification_note": "The latest layout check found low-text pages 50 and 71 and stopped before font, margin, and text-bound assertions. User requested no further PDF/DOCX runs; those checks remain incomplete."
+}

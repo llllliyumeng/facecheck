@@ -1,0 +1,107 @@
+{
+  "kind": "isolated_cloud_functional_and_online_cache_validation",
+  "formal_ytf_experiment": false,
+  "environment": {
+    "os": "macOS-26.6.2-arm64-arm-64bit",
+    "python": "3.9.6",
+    "machine": "arm64"
+  },
+  "https": {
+    "certificate_verification_enabled": true,
+    "hostname_verified": "localhost",
+    "protocol": "TLSv1.2",
+    "test_certificate_only": true
+  },
+  "access_control": {
+    "anonymous_denied": true,
+    "auditor_cannot_read_videos": true,
+    "auditor_can_read_audit": true,
+    "operator_cannot_revoke_credentials": true
+  },
+  "ten_concurrent_https_uploads": {
+    "requests": 10,
+    "completed": 10,
+    "success_rate": 1.0,
+    "seconds": {
+      "median": 0.06393985449999984,
+      "min": 0.05757637500000001,
+      "max": 0.09925183300000007
+    },
+    "scope": "four-frame synthetic videos; includes TLS and actual encryption/storage; not sustained availability or 10 video inference streams"
+  },
+  "restored_sha256_matches": true,
+  "manifest_metadata_tamper_rejected": true,
+  "session_cookie": {
+    "secure": true,
+    "httponly": true,
+    "samesite=strict": true
+  },
+  "session_and_keys_survive_restart": true,
+  "online_feature_cache": {
+    "sample_video_sha256": "d4246380f57c29cbf968d9f0f2ea4a6ca0e9e9462fc6b76982150e886b324e45",
+    "query_image_sha256": "46083e4f33b8b6dd3025ed2c2885cd7f4581661dd4297642f55214a632144841",
+    "query_count": 1,
+    "gallery_video_count": 1,
+    "accuracy_evaluation": false,
+    "results_exactly_equal": true,
+    "result_count": 10,
+    "cold": {
+      "http_seconds": 4.940798917000002,
+      "timings": {
+        "feature_cache_lookup_seconds": 0.132721,
+        "feature_cache_hit": false,
+        "ciphertext_read_seconds": 0.00012858299999995992,
+        "key_id_seconds": 1.4580000000652404e-06,
+        "hmac_sm3_seconds": 0.0009393339999999029,
+        "sm4_seconds": 0.002004458999999903,
+        "plaintext_write_seconds": 7.141700000001805e-05,
+        "sha256_seconds": 0.0002670830000000013,
+        "restore_and_integrity_seconds": 0.004863,
+        "video_info_seconds": 0.001115,
+        "video_decode_extract_seconds": 0.013441,
+        "sampled_frame_count": 119,
+        "face_detection_seconds": 0.526231,
+        "feature_extraction_seconds": 3.570168,
+        "feature_count": 63,
+        "similarity_sort_seconds": 0.001271,
+        "result_count": 10,
+        "query_image_decode_seconds": 0.000759,
+        "recognition_model": "arcface",
+        "embedding_dimension": 512,
+        "min_similarity": 0.2731515063106565,
+        "threshold_source": "ArcFace complete plaintext selection; frozen",
+        "total_seconds": 4.92441
+      }
+    },
+    "warm": {
+      "http_seconds": 0.46456812499999955,
+      "timings": {
+        "feature_cache_lookup_seconds": 0.158246,
+        "feature_cache_hit": true,
+        "feature_count": 63,
+        "cache_integrity": "authenticated cache; full ciphertext/manifest SHA-256 equals the previously authenticated source",
+        "similarity_sort_seconds": 0.001228,
+        "result_count": 10,
+        "query_image_decode_seconds": 0.000789,
+        "recognition_model": "arcface",
+        "embedding_dimension": 512,
+        "min_similarity": 0.2731515063106565,
+        "threshold_source": "ArcFace complete plaintext selection; frozen",
+        "total_seconds": 0.451705
+      }
+    },
+    "speedup_for_this_one_request": 10.63525164796876,
+    "tampered_cache_rejected": true
+  },
+  "tampered_video_rejected": true,
+  "revoked_access_token_and_session_rejected": true,
+  "backend": {
+    "crypto_backend": "gmssl-native",
+    "crypto_library_version": "GmSSL 3.2.0",
+    "sm4_implementation": "gmssl",
+    "default_model": "arcface"
+  },
+  "source_media_unchanged": true,
+  "status": "passed",
+  "total_seconds": 22.524638
+}

@@ -90,14 +90,14 @@
     "sha256": "9ab73beb242bdd6407fb57517957b65713a0bfc390f466fc976d12003ac4ea83"
   },
   {
-    "label": "audit_platform_api",
+    "label": "phase2_platform_rotation_api",
     "path": "src/facecheck/platform_api.py",
-    "sha256": "5725d7492395beba4ca9ba40d78ef8ab805a8a14f7d5a277512a3a03ea150e12"
+    "sha256": "a6873f07e2f0d12bf42582d300e80c01a9ffbf7fa023d5ae9a13917c60345feb"
   },
   {
-    "label": "audit_catalog",
+    "label": "phase2_rotation_catalog",
     "path": "src/facecheck/platform_catalog.py",
-    "sha256": "eb54edfe2ec88e6c95ed37478c03f28dca9a04c286d570e8d6f21ade426ffd80"
+    "sha256": "9151b2188a3b1e0ae0198b56f8a81c1a83fb30362d4b14a6542beaa62b87bbd4"
   },
   {
     "label": "audit_tests",
@@ -105,9 +105,9 @@
     "sha256": "9985211f116060b4e02951540340bb5c5cc024c559ffea23f2081c85e6813feb"
   },
   {
-    "label": "indicator_evaluator",
+    "label": "phase2_rotation_evaluator",
     "path": "scripts/evaluate_indicators.py",
-    "sha256": "2acf6164279016ce3e6e93e80d658ef38a776a88d5769b552b5fc01483806289"
+    "sha256": "1c0ee633c2997f51d209d778ad839fce2ea8e71ea4fda77c161a59850bc8e470"
   },
   {
     "label": "arc_yunet085_smoke_metrics",
@@ -165,14 +165,14 @@
     "sha256": "e02f3f9640841c993bfce77c58bba37e12d0d6da45d06df7c0986af34694e892"
   },
   {
-    "label": "optimization_roadmap",
+    "label": "phase2_rotation_roadmap",
     "path": "docs/optimization_roadmap_20261101.md",
-    "sha256": "151d75f46e216d4d8d4d31a8392b98130f22ea48c893c034127d7d2fbd027c5c"
+    "sha256": "013bef8773f3728343dcb2ebabee36325f38325c36edb1001b4a8baf18222827"
   },
   {
-    "label": "indicator_gap_analysis",
+    "label": "phase2_rotation_indicator_gaps",
     "path": "docs/indicator_gap_analysis.md",
-    "sha256": "2a1ef54271a68efbfd225d1b4566763e2c3286dcbcac275b6586515d1c7375e2"
+    "sha256": "1a297688d428ad0155ad995fb3f9dda978142f15d2e502ec43046e94722bd74c"
   },
   {
     "label": "arc_yunet085_smoke_comparison",
@@ -187,7 +187,7 @@
   {
     "label": "phase2_key_envelope_adr",
     "path": "docs/adr/0002-video-key-envelope-and-rotation.md",
-    "sha256": "c9e112c05b5f9d73db9547672aaf8ce1afc44fb0faca1f8fcc06c348dfcb1f8a"
+    "sha256": "2356c55b71048d03c9cc948b9569e7a2d07d9aa4b382caf16c1eb82e2a05e578"
   },
   {
     "label": "phase2_key_management_smoke",
@@ -195,14 +195,14 @@
     "sha256": "e27ee2b8b4559b382669599e1508db90e6239a1fe73ccafe81053fa9c371c138"
   },
   {
-    "label": "phase2_indicator_review_current",
+    "label": "phase2_indicator_review_v3_archive",
     "path": "results/facecheck_review_20261102_phase2_v3.json",
     "sha256": "cdb9297e843639dcd1552cf02ca01e16204a8aa9075e5840a5d1f33effd67487"
   },
   {
     "label": "phase2_key_management_source",
     "path": "src/facecheck/key_management.py",
-    "sha256": "1cab80685d2ee720e6b64d7218832043b448e5bf94f78395c18506fc0948e8e7"
+    "sha256": "325eaeaba4810a32ecd21a09826e72d8d11f64695e865afa6f4852f9da76b54a"
   },
   {
     "label": "phase2_key_rotation_source",
@@ -212,7 +212,7 @@
   {
     "label": "phase2_storage_source",
     "path": "src/facecheck/storage.py",
-    "sha256": "dae2e08e926db328afc66ec3bc7ae790e8adb7657fd3fc1a543c0caecdcd54cc"
+    "sha256": "c33e96b7e4138187853796652ea9656cac531d7cb6d5cfc8840c55d7e6d4f027"
   },
   {
     "label": "phase2_crypto_source",
@@ -230,13 +230,88 @@
     "sha256": "9b8b453c9703b55e01ac22a670b384fadf4fb81a4d37fd5a2bc4027c7dbd160f"
   },
   {
-    "label": "indicator_evaluator_tests",
+    "label": "phase2_rotation_evaluator_tests",
     "path": "tests/test_indicator_evaluation.py",
-    "sha256": "9c2cf26eb9ada9f6d4f95ab7c13f51e6af577bac7d3452a7111fa0de00d55d13"
+    "sha256": "cb3e863b5e53c90a71bd3d5b3a757356d6283755b94ea610612736ba6933d716"
   },
   {
     "label": "phase2_readme",
     "path": "README.md",
-    "sha256": "f900c082a778c9458088a28f5dee200e444a67782eec66abb0dc9628ef31fbe7"
+    "sha256": "2b7506816202e96b1654a8477a6b5b0d8aba1388af3aafca93682cb43a31c4c3"
+  },
+  {
+    "label": "phase2_rotation_control_smoke_v1_archive",
+    "path": "results/phase2_rotation_control_smoke_20261102.json",
+    "sha256": "75e49e7db10d8918a3fad821eb978013e58433c4d1f4ad43de6bd4b8e6945e28"
+  },
+  {
+    "label": "phase2_indicator_review_v4_archive",
+    "path": "results/facecheck_review_20261102_phase2_v4.json",
+    "sha256": "38d7ca0e61be7a63fd92cc7de6a82d08ab32be135999c7e07b54c5efb1b0638e"
+  },
+  {
+    "label": "phase2_rotation_control_source",
+    "path": "src/facecheck/rotation_control.py",
+    "sha256": "d26831876d71b64e54fcd0030aa4d1222fcb2024df06d8bd97c2bc3b6d7f668d"
+  },
+  {
+    "label": "phase2_rotation_worker",
+    "path": "scripts/run_key_rotation_worker.py",
+    "sha256": "be1d79d9a4cfd6e6f2e718467dd8affad8e354fbd68d25b6446d5c9f29df5ea2"
+  },
+  {
+    "label": "phase2_rotation_control_tests",
+    "path": "tests/test_rotation_control.py",
+    "sha256": "61fbabb1bf26fd630735c37ef4bee676fb03a67742b0b17702f2508719334220"
+  },
+  {
+    "label": "phase2_report_source_markdown",
+    "path": "reports/course_report_20261101/报告正文.md",
+    "sha256": "5a3428ec6a7fe1db872ef07f00c318916a9d790e4c08ef9d192443089bf98031"
+  },
+  {
+    "label": "phase2_rotation_control_smoke_v2_archive",
+    "path": "results/phase2_rotation_control_smoke_20261102_v2.json",
+    "sha256": "689a3caf16df4a6467b03499a5d44b80639160e6d6fd3a6c5702d7b294074379"
+  },
+  {
+    "label": "phase2_indicator_review_v5_archive",
+    "path": "results/facecheck_review_20261102_phase2_v5.json",
+    "sha256": "73c7e35f55661819e73676cb3ef5cf1acca9658dc82d3352478535967682025b"
+  },
+  {
+    "label": "phase2_rotation_cloud_access_test",
+    "path": "tests/test_cloud_access.py",
+    "sha256": "bcc624afa8fc9419c2747c1faaa4d348c7bd1c23ead74580f0f76b9a8d8277b3"
+  },
+  {
+    "label": "phase2_rotation_control_smoke_v3_archive",
+    "path": "results/phase2_rotation_control_smoke_20261102_v3.json",
+    "sha256": "ff8b5490c5ccceb1155155b2a23eb4a8cbaf3f6f6d5b7e7c0ef7469b50fcf452"
+  },
+  {
+    "label": "phase2_indicator_review_v6_archive",
+    "path": "results/facecheck_review_20261102_phase2_v6.json",
+    "sha256": "c5075fa5edfe3c2c57f1c3a8ca7f105d43e4cf61d2419994f77063e3afdbb491"
+  },
+  {
+    "label": "phase2_rotation_control_smoke_v4_archive",
+    "path": "results/phase2_rotation_control_smoke_20261102_v4.json",
+    "sha256": "2d095b232f534fee0423b99b2bfc059e3bbe93484a665a8bca373388d7053a49"
+  },
+  {
+    "label": "phase2_indicator_review_v7_archive",
+    "path": "results/facecheck_review_20261102_phase2_v7.json",
+    "sha256": "e5c29b9311c3a1eaed6452ebec870d64869ed6248357d7b89efd8906ef45af4a"
+  },
+  {
+    "label": "phase2_rotation_control_smoke",
+    "path": "results/phase2_rotation_control_smoke_20261102_v5.json",
+    "sha256": "2035fdfb8d59501747743f07542b9e0e7972cb48d0e45b359a04dbadf7190915"
+  },
+  {
+    "label": "phase2_indicator_review_current",
+    "path": "results/facecheck_review_20261102_phase2_v8.json",
+    "sha256": "9570fca35a1c5f1455083c4660181e42c738a1af986b878c97eefac430318a35"
   }
 ]

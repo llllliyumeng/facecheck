@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FaceGuard · 人像视频隐私控制台</title>
+  <title>FaceCheck · 云端人像视频隐私保护与检索实验平台</title>
   <style>
     :root {
       color-scheme: light;
@@ -140,20 +140,25 @@
       .security-row span { display: block; margin-top: 5px; text-align: left; }
     }
   </style>
+  <link rel="stylesheet" href="/platform.css">
 </head>
 <body>
 <div class="app">
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-mark">FG</div>
-      <div><strong>FaceGuard</strong><span>隐私保护控制台</span></div>
+      <div class="brand-mark">FC</div>
+      <div><strong>FaceCheck</strong><span>人像隐私与检索实验平台</span></div>
     </div>
     <nav class="nav" aria-label="主导航">
       <button class="active" data-view="overview"><span class="nav-icon">⌂</span>总览</button>
       <button data-view="videos"><span class="nav-icon">▣</span>视频管理</button>
       <button data-view="search"><span class="nav-icon">⌕</span>人脸检索</button>
       <button data-view="security"><span class="nav-icon">◇</span>安全中心</button>
-      <button data-view="experiments"><span class="nav-icon">▥</span>实验分析</button>
+      <button data-view="experiments"><span class="nav-icon">▥</span>历史实验</button>
+      <button data-view="batch"><span class="nav-icon">▷</span>批量数据集实验</button>
+      <button data-view="retrieval"><span class="nav-icon">⌕</span>数据集 1:N 检索</button>
+      <button data-view="benchmarks"><span class="nav-icon">▤</span>国密与性能记录</button>
+      <button data-view="requirements"><span class="nav-icon">✓</span>课题指标对照</button>
       <button data-view="audit"><span class="nav-icon">≡</span>审计日志</button>
     </nav>
     <div class="side-note">本地演示模式<br>服务默认绑定 127.0.0.1<br>仅处理获得授权的测试素材</div>
@@ -165,7 +170,8 @@
     </header>
     <main>
       <section id="view-overview" class="view active">
-        <div class="intro"><div><h2>运行概况</h2><p>从真实任务、审计记录和安全摘要中查看当前系统状态。页面不展示密钥、embedding 或内部路径。</p></div><button id="overviewRefresh" class="button secondary">刷新数据</button></div>
+        <section class="card platform-hero"><p class="eyebrow">课程实践 · 真实数据与可追溯实验</p><h2>云端人像视频隐私保护与检索实验平台</h2><p>视频分块 → SM4-CBC + HMAC-SM3 → 密文存储 → 认证与解密恢复 → YuNet + ArcFace 检索 → 审计与报告</p><p class="muted">支持 HTTPS、角色权限与密钥文件注入的单机服务。当前为解密恢复后检索；密文域 ANN、边缘云协同及规模化指标仍需独立实现和验证。</p><div id="platformOverview">正在读取正式实验...</div></section>
+        <div class="intro"><div><h2>运行概况</h2><p>从真实任务、审计记录和安全摘要中查看当前系统状态。页面不展示密钥或 embedding；仅展示登记的数据路径与结果文件。</p></div><button id="overviewRefresh" class="button secondary">刷新数据</button></div>
         <div id="overviewMetrics" class="grid summary-grid"></div>
         <div class="grid two-col">
           <section class="card"><div class="toolbar"><div><h2>近期任务</h2><p class="muted">上传视频后的处理状态和加密结果</p></div><button class="button secondary" data-go="videos">查看全部</button></div><div id="overviewTasks"></div></section>
@@ -189,7 +195,7 @@
         <div class="intro"><div><h2>人脸检索</h2><p>选择已完成的加密视频和授权查询图片，结果只返回受控候选编号、帧号、时间戳和数学相似度。</p></div><button id="searchRefresh" class="button secondary">刷新视频状态</button></div>
         <div class="grid two-col">
           <section class="card">
-            <h2>检索工作区</h2><p class="muted">查询图片只在本次请求内处理，不保存 embedding。相似度不是身份确认概率。</p>
+            <h2>检索工作区</h2><p class="muted" id="searchModelNote">默认 ArcFace（512 维），筛选阈值 0.2731515063 来自独立 YTF selection；可配置回退 SFace。查询图片只在本次请求内处理，相似度不是身份确认概率。</p>
             <div style="margin-top:20px"><label for="task">已完成视频任务</label><select id="task"><option value="">请先刷新视频列表</option></select></div>
             <div style="margin-top:16px"><label for="query">授权查询图片</label><input id="query" type="file" accept="image/*"></div>
             <div style="margin-top:16px"><label for="topK">返回数量（1-100）</label><input id="topK" type="number" min="1" max="100" value="10"></div>
@@ -204,61 +210,45 @@
       <section id="view-security" class="view">
         <div class="intro"><div><h2>安全中心</h2><p>展示当前实现的密码学能力、完整性状态和已知限制，不将设计目标描述为已实现能力。</p></div><button id="securityRefresh" class="button secondary">刷新状态</button></div>
         <div class="grid two-col">
-          <section class="card"><h2>当前安全状态</h2><div id="securityDetails"></div></section>
-          <section class="card"><h2>安全边界</h2><div class="notice">当前服务默认用于 127.0.0.1 本机演示，没有身份认证、用户授权或多租户隔离。不要在公网部署，不要上传未授权的人脸数据。</div><div class="security-list"><div class="security-row"><strong>人脸特征</strong><span>仅内存处理，不写入数据库或 API 响应</span></div><div class="security-row"><strong>Manifest 来源认证</strong><span>尚未实现独立 HMAC/SM2 签名</span></div><div class="security-row"><strong>密钥轮换与撤销</strong><span>尚未实现自动轮换、撤销和迁移</span></div></div></section>
+          <section class="card"><h2>当前安全状态</h2><div id="securityDetails"></div><div id="platformKeyDetails"></div></section>
+          <section class="card"><h2>安全边界</h2><div class="notice">当前服务默认用于 127.0.0.1 本机演示，没有身份认证、用户授权或多租户隔离。不要在公网部署，不要上传未授权的人脸数据。</div><div class="security-list"><div class="security-row"><strong>人脸特征</strong><span>仅内存处理，不写入数据库或 API 响应</span></div><div class="security-row"><strong>Manifest 来源认证</strong><span>尚未实现独立 HMAC/SM2 签名</span></div><div class="security-row"><strong>密钥轮换与撤销</strong><span>已提供单视频迁移函数；自动轮换、撤销和批量编排尚未实现</span></div></div></section>
         </div>
         <section class="card" style="margin-top:18px"><h2>安全能力矩阵</h2><div class="table-wrap"><table class="matrix"><thead><tr><th>能力</th><th>状态</th><th>实际说明</th></tr></thead><tbody>
           <tr><td>视频分块加密</td><td><span class="badge success">已实现</span></td><td>SM4-CBC，每块独立随机 IV</td></tr>
           <tr><td>分块完整性认证</td><td><span class="badge success">已实现</span></td><td>HMAC-SM3 在解密前验证，并绑定视频、序号和密钥版本</td></tr>
           <tr><td>恢复后文件校验</td><td><span class="badge success">已实现</span></td><td>恢复临时文件通过大小和 SHA-256 校验后才发布</td></tr>
           <tr><td>篡改与错误密钥拒绝</td><td><span class="badge success">有测试证据</span></td><td>密文篡改、错误密钥和缺失分片测试均拒绝</td></tr>
-          <tr><td>密钥轮换与撤销</td><td><span class="badge warning">未实现</span></td><td>只有运行时密钥和 key version 字段</td></tr>
+          <tr><td>密钥轮换与撤销</td><td><span class="badge warning">原型阶段</span></td><td>版本派生与单视频迁移助手；未实现自动轮换、全局撤销或 KMS</td></tr>
           <tr><td>用户身份与权限</td><td><span class="badge warning">未实现</span></td><td>仅限本机演示，无用户认证和多租户隔离</td></tr>
           <tr><td>密文域人脸检索</td><td><span class="badge warning">未实现</span></td><td>当前流程是恢复并验证后，再在内存中做人脸检索</td></tr>
         </tbody></table></div></section>
       </section>
 
       <section id="view-experiments" class="view">
-        <div class="intro"><div><h2>实验分析</h2><p>展示仓库中已记录的真实基准和当前 API 返回的阶段耗时。历史基准不是实时接口数据，也不构成性能承诺。</p></div></div>
-        <div class="notice" style="margin-bottom:18px">实验条件：授权视频 4,863,988 bytes（约 4.64 MiB）、1 MiB 分片、5 个分片、macOS Apple Silicon、Python 3.9.6、cryptography 42.0.8 / OpenSSL 3.2.2。结果来自 README 中已记录的可复现实验。</div>
-        <div class="grid summary-grid">
-          <div class="card"><div class="metric-label">优化后加密中位数</div><div class="metric-value">0.266 s</div><div class="metric-foot">3 次独立测量</div></div>
-          <div class="card"><div class="metric-label">优化后恢复中位数</div><div class="metric-value">0.266 s</div><div class="metric-foot">恢复后 SHA-256 一致</div></div>
-          <div class="card"><div class="metric-label">原始加密基线</div><div class="metric-value">约 57.5 s</div><div class="metric-foot">gmssl Python 实现</div></div>
-          <div class="card"><div class="metric-label">原始恢复基线</div><div class="metric-value">约 55.3 s</div><div class="metric-foot">同条件历史记录</div></div>
-        </div>
-        <div class="grid two-col">
-          <section class="card"><h2>端到端阶段耗时</h2><p class="muted">来自最近一次真实 API 验收；阶段计时存在嵌套关系，不能简单相加。</p><div class="bar-chart">
-            <div class="bar-row"><span>恢复与认证</span><div class="bar-track"><div class="bar-fill" style="width:45%"></div></div><strong>0.268 s</strong></div>
-            <div class="bar-row"><span>视频解码/抽帧</span><div class="bar-track"><div class="bar-fill" style="width:69%"></div></div><strong>0.412 s</strong></div>
-            <div class="bar-row"><span>YuNet 检测</span><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><strong>0.599 s</strong></div>
-            <div class="bar-row"><span>SFace 特征</span><div class="bar-track"><div class="bar-fill" style="width:43%"></div></div><strong>0.255 s</strong></div>
-            <div class="bar-row"><span>检索总处理</span><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><strong>1.698 s</strong></div>
-          </div></section>
-          <section class="card"><h2>加速前后对比</h2><p class="muted">相同授权视频、分片大小和临时测试密钥；旧版数据为历史基线，本轮未切换旧实现重新运行。</p><div class="bar-chart">
-            <div class="bar-row"><span>加密：原始</span><div class="bar-track"><div class="bar-fill" style="width:100%;background:#c7772c"></div></div><strong>57.5 s</strong></div>
-            <div class="bar-row"><span>加密：优化后</span><div class="bar-track"><div class="bar-fill" style="width:1%;"></div></div><strong>0.266 s</strong></div>
-            <div class="bar-row"><span>恢复：原始</span><div class="bar-track"><div class="bar-fill" style="width:96%;background:#c7772c"></div></div><strong>55.3 s</strong></div>
-            <div class="bar-row"><span>恢复：优化后</span><div class="bar-track"><div class="bar-fill" style="width:1%;"></div></div><strong>0.266 s</strong></div>
-          </div></section>
-        </div>
-        <section class="card" style="margin-top:18px"><h2>安全与兼容性验证</h2><p class="muted">测试结果来自当前 pytest 套件，不在页面中重新计算或虚构通过率。</p><div class="table-wrap"><table class="matrix"><thead><tr><th>验证项</th><th>当前结果</th><th>证据范围</th></tr></thead><tbody>
-          <tr><td>正常加密与恢复</td><td><span class="badge success">已通过</span></td><td>存储恢复测试</td></tr>
-          <tr><td>错误密钥 / MAC 密钥</td><td><span class="badge success">已拒绝</span></td><td>密码学和存储测试</td></tr>
-          <tr><td>密文篡改 / 缺失分片</td><td><span class="badge success">已拒绝</span></td><td>分片完整性测试</td></tr>
-          <tr><td>旧 gmssl envelope 兼容</td><td><span class="badge success">已通过</span></td><td>后端互操作测试</td></tr>
-          <tr><td>HMAC-SM3 边界输入</td><td><span class="badge success">已通过</span></td><td>空消息、分组边界、超长密钥</td></tr>
-          <tr><td>完整自动化测试</td><td><span class="badge success">66 passed / 2 skipped</span></td><td>当前本地 pytest 运行结果</td></tr>
-        </tbody></table></div></section>
+        <div class="intro"><div><h2>历史实验与报告</h2><p>从已有结果文件读取。正式 test、selection、探索性实验分开标记；历史输出只读，不提供正式 test 重跑入口。</p></div><button id="historyRefresh" class="button secondary">刷新记录</button></div>
+        <div id="historyList" class="grid"></div><section id="historyDetail" class="card spaced"><div class="empty">选择一份实验查看指标、配置与文件</div></section>
       </section>
-
+      <section id="view-batch" class="view">
+        <div class="intro"><div><h2>批量数据集实验</h2><p>使用已登记数据与固定配置，在独立工作进程中运行。任务、进度与日志保存在 SQLite，浏览器关闭后仍可查看。</p></div><button id="batchRefresh" class="button secondary">刷新任务</button></div>
+        <div class="notice">新任务均为探索性运行；不覆盖正式实验。现有 Runner 实际执行 plaintext + encrypted_restore 两种模式。完整 selection 可能耗时数小时，请先查看资源预检，再自行启动；默认小规模20身份。</div>
+        <div class="grid two-col spaced"><section class="card"><h2>固定实验配置</h2><div class="form-grid spaced"><div><label for="batchDataset">已登记数据集</label><select id="batchDataset"></select></div><div><label for="batchModel">识别模型</label><select id="batchModel"><option value="arcface">ArcFace · 候选/默认识别模型</option><option value="sface">SFace · 兼容基线</option></select></div></div><p class="muted spaced">配置：1秒采样、YuNet 0.9、所有有效人脸、逐帧特征、cosine/max、Top-K=5。无 Gallery 质量筛选或特征均值聚合；划分不允许编辑。</p><div class="toolbar-actions"><button id="batchPreview" class="button secondary">资源预检</button><button id="batchStart" class="button" disabled>启动独立实验</button></div><div id="batchStatus" class="status">先完成资源预检；不会自动启动实验</div></section><section class="card"><h2>数据集与资源</h2><div id="datasetDetails"></div><div id="batchResources" class="muted spaced"></div></section></div>
+        <section class="card spaced"><h2>持久化任务历史</h2><div id="batchList"></div></section>
+        <section id="jobDetail" class="card spaced"><div class="empty">选择任务查看阶段、日志与结果</div></section>
+      </section>
+      <section id="view-retrieval" class="view">
+        <div class="intro"><div><h2>数据集 1:N 实时检索</h2><p>固定20身份集，选择已登记 Query；候选限制在同一 identity-disjoint 分区。实时提取每个媒体一次并在内存中复用，与历史结果回放区分。</p></div></div>
+        <section class="card"><div class="form-grid"><div><label for="datasetQuery">已登记 Query / 身份 / 分区</label><select id="datasetQuery"></select></div><div><label for="retrievalModel">模型</label><select id="retrievalModel"><option value="arcface">ArcFace</option><option value="sface">SFace</option></select></div><div><label for="retrievalMode">检索模式</label><select id="retrievalMode"><option value="plaintext">plaintext · 明文检索</option><option value="encrypted_restore">encrypted_restore · 认证与解密恢复后检索</option></select></div><div><label for="retrievalK">Top-K</label><input id="retrievalK" type="number" value="5" min="1" max="100"></div></div><p class="notice spaced">不是密文域 ANN。任务可能运行数分钟，共用批量任务槽；加密模式使用进程内随机实验密钥，结果中不保存密钥或特征向量。</p><button id="datasetSearch" class="button spaced">启动 1:N 检索任务</button><div id="retrievalStatus" class="status">等待操作</div><button class="button secondary spaced" data-go="batch">查看进度与持久化日志</button><div id="datasetResults" class="spaced"></div></section>
+      </section>
+      <section id="view-benchmarks" class="view"><div class="intro"><div><h2>国密接入与历史性能</h2><p>保留 GmSSL native、Python 兼容及可选 OpenSSL SM4。历史记录逐份显示环境、轮数、中位数和波动；不把峰值或纯原语吞吐写成完整封装性能。</p></div></div><div id="benchmarkList" class="grid"></div></section>
+      <section id="view-requirements" class="view"><div class="intro"><div><h2>课题要求与实际实现</h2><p>每项指标列出目标、现有证据和达成状态。未测试不等于零；本机小样本结果不等于云端规模化指标。</p></div></div><section class="card"><h2>八项研究内容</h2><div id="researchTable"></div></section><section class="card spaced"><h2>预期指标对照</h2><div id="requirementTable"></div></section></section>
       <section id="view-audit" class="view">
         <div class="intro"><div><h2>审计日志</h2><p>默认显示真实 SQLite 审计记录；可按现有任务 ID 筛选，展开详情查看错误摘要。</p></div><button id="auditRefresh" class="button secondary">刷新日志</button></div>
-        <section class="card"><div class="form-grid" style="margin-bottom:18px"><div><label for="auditTask">按任务 ID 筛选（可选）</label><input id="auditTask" maxlength="64" placeholder="输入完整任务 ID"></div><div style="align-self:end"><button id="auditFilter" class="button">应用筛选</button></div></div><div id="auditTable"></div></section>
+        <section class="card"><div class="form-grid" style="margin-bottom:18px"><div><label for="auditTask">按任务 ID 筛选（可选）</label><input id="auditTask" maxlength="64" placeholder="输入完整任务 ID"></div><div style="align-self:end"><button id="auditFilter" class="button">应用筛选</button></div></div><div class="toolbar-actions spaced"><a class="button secondary" id="auditCsv" href="/api/v1/platform/audit/export?format=csv">导出全部匹配事件 CSV</a><a class="button secondary" id="auditReport" href="/api/v1/platform/audit/export?format=md">生成审计快照报告</a></div><p class="muted spaced">报告为 SQLite 事件快照；尚无审计完整率和长期生成成功率测试。</p><div id="auditTable"></div></section>
       </section>
     </main>
   </div>
 </div>
+<script src="/auth.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const viewMeta = {
@@ -266,7 +256,11 @@ const viewMeta = {
   videos: ['视频管理', '授权视频上传、加密处理与任务详情'],
   search: ['人脸检索', '在内存中执行授权视频相似度检索'],
   security: ['安全中心', '密码学能力、完整性状态与安全边界'],
-  experiments: ['实验分析', '性能基准、端到端耗时与兼容性验证'],
+  experiments: ['历史实验与报告', '只读正式 test、selection 与探索性结果'],
+  batch: ['批量数据集实验', '固定配置、持久化状态与独立进程'],
+  retrieval: ['数据集检索', '已登记Query的实时1:N检索'],
+  benchmarks: ['国密与性能记录', '真实历史benchmark与测试口径'],
+  requirements: ['课题指标对照', '研究目标、系统实现、实测证据'],
   audit: ['审计日志', '查看真实操作记录与失败摘要']
 };
 let tasks = [];
@@ -291,7 +285,7 @@ function statusBadge(status) {
   return `<span class="badge ${kind}">${escapeHTML(status)}</span>`;
 }
 async function api(url, options = {}) {
-  const response = await fetch(url, options);
+  const response = await window.facecheckAuth.fetch(url, options);
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.detail || `请求失败（${response.status}）`);
   return body;
@@ -302,6 +296,7 @@ function setView(name) {
   $('pageTitle').textContent = viewMeta[name][0]; $('pageSubtitle').textContent = viewMeta[name][1];
   if (name === 'videos' || name === 'search' || name === 'overview') refreshTasks().catch(error => showStatus('uploadStatus', error.message, 'error'));
   if (name === 'security' || name === 'overview') refreshSecurity().catch(error => renderError('securityDetails', error));
+  if (window.platformViewChanged) window.platformViewChanged(name);
   if (name === 'audit' || name === 'overview') refreshAudit().catch(error => renderError('auditTable', error));
 }
 function renderError(id, error) { $(id).innerHTML = `<div class="status error">${escapeHTML(error.message)}</div>`; }
@@ -311,7 +306,7 @@ function taskDetails(item) {
     ['任务 ID', `<code>${escapeHTML(item.task_id)}</code> <button class="button secondary copy-task" data-task-id="${escapeHTML(item.task_id)}" style="padding:3px 7px">复制</button>`], ['创建时间', escapeHTML(item.created_at)],
     ['更新时间', escapeHTML(item.updated_at)], ['存储 ID', item.storage_id ? `<code>${escapeHTML(item.storage_id)}</code>` : '-'],
     ['加密算法', escapeHTML(item.encryption_algorithm || '-')], ['认证算法', escapeHTML(item.mac_algorithm || '-')],
-    ['完整性', escapeHTML(item.integrity_status || '-')], ['密钥版本', escapeHTML(item.key_version || '-')],
+    ['上传记录状态', escapeHTML(item.integrity_status || '-') + '（恢复需单独验证）'], ['密钥版本', escapeHTML(item.key_version || '-')],
     ['分片数量', escapeHTML(item.chunk_count ?? '-')], ['总耗时', metrics.total_seconds != null ? `${escapeHTML(metrics.total_seconds)} s` : '-'],
     ['错误摘要', item.error_message ? escapeHTML(item.error_message) : '-']
   ];
@@ -328,7 +323,7 @@ function taskDetails(item) {
     stage('人脸检测与检索', searchState === 'processing' ? '处理中' : searchState === 'completed' ? '已完成' : searchState === 'failed' ? '失败' : '未执行')
   ].join('');
   const note = searchIsCurrent ? '<p class="muted" style="margin-top:12px">检索状态来自当前浏览器会话，上传任务接口不会持久化检索阶段。</p>' : '';
-  return `<dl class="detail-grid">${entries.map(([key, value]) => `<div class="detail-item"><dt>${key}</dt><dd>${value}</dd></div>`).join('')}</dl><h3 style="margin-top:20px">处理时间线</h3><div class="timeline">${timeline}</div>${note}`;
+  return `${completed ? `<div class="toolbar-actions"><button class="button secondary verify-video" data-task-id="${escapeHTML(item.task_id)}">恢复并校验完整性</button><button class="button secondary restore-video" data-task-id="${escapeHTML(item.task_id)}">校验并下载恢复视频</button></div><div class="verify-result muted spaced"></div>` : ''}<dl class="detail-grid">${entries.map(([key, value]) => `<div class="detail-item"><dt>${key}</dt><dd>${value}</dd></div>`).join('')}</dl><h3 style="margin-top:20px">处理时间线</h3><div class="timeline">${timeline}</div>${note}`;
 }
 function renderTaskTable(items, targetId, compact = false) {
   if (!items.length) { $(targetId).innerHTML = '<div class="empty">暂无任务</div>'; return; }
@@ -393,7 +388,7 @@ function renderMetrics(summary, taskData) {
 }
 async function refreshSecurity() {
   const summary = await api('/api/v1/security/summary'); window.lastSecurity = summary;
-  $('securityDetails').innerHTML = `<div class="security-list"><div class="security-row"><strong>数据加密</strong><span>${escapeHTML(summary.encryption)}</span></div><div class="security-row"><strong>分片认证</strong><span>${escapeHTML(summary.authentication)}</span></div><div class="security-row"><strong>恢复完整性</strong><span>${escapeHTML(summary.integrity_check)}</span></div><div class="security-row"><strong>Manifest 认证</strong><span>${escapeHTML(summary.manifest_authentication)}</span></div><div class="security-row"><strong>身份认证</strong><span>${summary.authentication_required ? '已启用' : '未启用，仅限本机演示'}</span></div></div>`;
+  $('securityDetails').innerHTML = `<div class="security-list"><div class="security-row"><strong>数据加密</strong><span>${escapeHTML(summary.encryption)}</span></div><div class="security-row"><strong>分片认证</strong><span>${escapeHTML(summary.authentication)}</span></div><div class="security-row"><strong>恢复完整性</strong><span>${escapeHTML(summary.integrity_check)}</span></div><div class="security-row"><strong>Manifest 独立认证</strong><span>${escapeHTML(summary.manifest_authentication)}</span></div><div class="security-row"><strong>Manifest 可信锚点</strong><span>${escapeHTML(summary.manifest_integrity_anchor || "历史版本未提供")}</span></div><div class="security-row"><strong>身份认证</strong><span>${summary.authentication_required ? '已启用' : '未启用，仅限本机演示'}</span></div></div>`;
   renderMetrics(summary, {total: tasks.length});
 }
 function renderAudit(items, targetId, compact = false) {
@@ -419,9 +414,9 @@ $('searchBtn').onclick = async () => {
   const task = $('task').value, file = $('query').files[0], topK = Number($('topK').value);
   if (!task || !file) return showStatus('searchStatus', '请选择已完成任务和授权图片', 'error');
   if (!Number.isInteger(topK) || topK < 1 || topK > 100) return showStatus('searchStatus', '返回数量必须是 1 到 100 的整数', 'error');
-  const form = new FormData(); form.append('query_image', file); $('searchBtn').disabled = true; showStatus('searchStatus', '正在恢复、校验、检测和检索，请稍候...');
+  const form = new FormData(); form.append('query_image', file); $('searchBtn').disabled = true; showStatus('searchStatus', '正在校验视频与特征并执行检索，请稍候...');
   lastSearchTaskId = task; lastSearchStatus = 'processing'; renderFilteredTasks();
-  try { const data = await api(`/api/v1/videos/${encodeURIComponent(task)}/search?top_k=${topK}`, {method: 'POST', body: form}); const seconds = data.timings?.total_seconds; lastSearchStatus = 'completed'; showStatus('searchStatus', `完成：${data.results.length} 条结果${seconds != null ? `，处理耗时 ${seconds} 秒` : ''}。${data.similarity_note}`, 'success'); renderResults(data.results || []); await refreshTasks(); await refreshSecurity(); await refreshAudit(); }
+  try { const data = await api(`/api/v1/videos/${encodeURIComponent(task)}/search?top_k=${topK}`, {method: 'POST', body: form}); const seconds = data.timings?.total_seconds; lastSearchStatus = 'completed'; showStatus('searchStatus', `完成：${data.results.length} 条结果${seconds != null ? `，处理耗时 ${seconds} 秒` : ''}。${data.timings?.feature_cache_hit ? "已复用通过认证的加密特征缓存。" : ""}${data.similarity_note}`, 'success'); renderResults(data.results || []); await refreshTasks(); await refreshSecurity(); await refreshAudit(); }
   catch (error) { lastSearchStatus = 'failed'; showStatus('searchStatus', error.message, 'error'); $('results').innerHTML = '<div class="empty">没有可展示的结果</div>'; renderFilteredTasks(); await refreshTasks().catch(() => {}); } finally { $('searchBtn').disabled = false; }
 };
 function renderResults(rows) { if (!rows.length) { $('results').innerHTML = '<div class="empty">没有达到条件的候选</div>'; return; } $('results').innerHTML = `<div class="result-list">${rows.map(row => `<div class="result-item"><div><strong><code>${escapeHTML(row.candidate_id)}</code></strong><span class="muted">帧 ${escapeHTML(row.frame_index)} · ${Number(row.timestamp_seconds).toFixed(3)} 秒</span></div><div class="result-score">${Number(row.similarity).toFixed(6)}</div></div>`).join('')}</div>`; }
@@ -443,5 +438,6 @@ setInterval(() => {
   }
 }, 3000);
 </script>
+<script src="/platform.js"></script>
 </body>
 </html>

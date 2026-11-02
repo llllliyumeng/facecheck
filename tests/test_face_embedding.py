@@ -6,9 +6,12 @@ import pytest
 
 from facecheck.face_detection import FaceDetection
 from facecheck.face_embedding import (
+    ArcFaceConfig,
     FaceEmbeddingError,
     SFaceConfig,
+    clip_detection_to_image,
     cosine_similarity,
+    extract_arcface_embedding,
     extract_embedding,
     face_record_from_detection,
     load_sface_recognizer,
@@ -66,6 +69,25 @@ def test_face_record_preserves_yunet_order(tmp_path: Path) -> None:
     )
 
 
+def test_face_record_can_clip_detector_boundary_coordinates() -> None:
+    detection = _detection(x=-2.0, y=-1.0, width=40.0, height=40.0,
+                           landmarks=((-1.0, -1.0), (32.0, 0.0), (12.0, 14.0),
+                                      (9.0, 32.0), (32.0, 32.0)))
+    record = face_record_from_detection(
+        detection,
+        (32, 32, 3),
+        clip_to_image=True,
+    )
+    assert record[:4].tolist() == pytest.approx([0.0, 0.0, 32.0, 32.0])
+    assert np.all(record[4:14] >= 0)
+    assert np.all(record[4:14] < 32)
+    clipped = clip_detection_to_image(detection, (32, 32, 3))
+    assert clipped.x == pytest.approx(0.0)
+    assert clipped.y == pytest.approx(0.0)
+    assert clipped.width == pytest.approx(32.0)
+    assert clipped.height == pytest.approx(32.0)
+
+
 def test_extract_embedding_aligns_and_returns_normalised_float32(tmp_path: Path) -> None:
     image = np.zeros((32, 32, 3), dtype=np.uint8)
     raw_feature = np.arange(1, 129, dtype=np.float64).reshape(1, 128)
@@ -82,6 +104,37 @@ def test_extract_embedding_aligns_and_returns_normalised_float32(tmp_path: Path)
     assert recognizer.face_input.tolist() == pytest.approx(
         [4, 4, 16, 16, 8, 10, 16, 10, 12, 14, 9, 18, 15, 18, 0.95]
     )
+
+
+def test_extract_arcface_embedding_uses_rgb_normalised_112_input(tmp_path: Path) -> None:
+    class FakeArcFaceRecognizer:
+        def __init__(self):
+            self.input = None
+
+        def setInput(self, blob):
+            self.input = blob.copy()
+
+        def forward(self):
+            return np.arange(1, 513, dtype=np.float32).reshape(1, 512)
+
+    image = np.empty((32, 32, 3), dtype=np.uint8)
+    image[:] = (10, 20, 30)
+    recognizer = FakeArcFaceRecognizer()
+    result = extract_arcface_embedding(
+        image,
+        _detection(),
+        ArcFaceConfig(tmp_path / "arcface.onnx"),
+        recognizer_factory=lambda _: recognizer,
+    )
+
+    assert recognizer.input.shape == (1, 3, 112, 112)
+    assert recognizer.input[0, :, 56, 56] == pytest.approx(
+        [(30 - 127.5) / 127.5, (20 - 127.5) / 127.5, (10 - 127.5) / 127.5],
+        abs=0.02,
+    )
+    assert result.vector.shape == (512,)
+    assert result.vector.dtype == np.float32
+    assert np.linalg.norm(result.vector) == pytest.approx(1.0)
 
 
 @pytest.mark.parametrize(

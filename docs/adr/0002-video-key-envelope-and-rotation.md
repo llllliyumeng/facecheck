@@ -1,6 +1,6 @@
 # ADR 0002：逐视频 SM2 密钥信封与轮换
 
-- 状态：v2 存储和文件批量 rewrap 原型已实现；生产接入待实施
+- 状态：v2 存储、单机 SQLite 轮换队列和引用切换原型已实现；生产接入待实施
 - 日期：2026-11-02
 - 范围：阶段二的存储格式、密钥接口、旧格式兼容和轮换语义
 
@@ -18,7 +18,7 @@
 
 ### 假设与不覆盖项
 
-- SM2 公钥来自可信注册/证书来源，私钥由调用方保护。当前原型只提供内存中的 `KeyProvider` 实现，不是 KMS，也不提供生产密钥注入或私钥轮换托管。
+- SM2 公钥必须来自可信注册/证书来源，私钥由调用方保护。代码提供独立 SHA-256 pin 校验的 `PinnedVideoKeyDirectory` 和受信 `module:function` provider factory 接口；目前没有已部署的可信目录或真实 KMS/HSM adapter。`Sm2MemoryKeyProvider` 仅供本地原型使用。
 - 拥有应用进程或私钥的攻击者可解密数据；本方案不保护运行时明文、内存转储、恶意服务端或终端被攻陷。
 - 访问模式、对象 ID、时间、密文大小、分块数量及公开 manifest 中的源 SHA-256 仍可见。外部摘要锚点可检测云端 manifest 被替换，但不提供独立的本地防回滚。
 - HMAC 可检测篡改，不证明 manifest 是最新版本。防回滚需要数据库中单调版本/可信锚点，并要覆盖备份恢复流程。
@@ -30,14 +30,18 @@
 3. 用接收方 SM2 公钥加密 key material。信封保存算法、外部提供的 `recipient_key_id` 和 base64 密文。加密明文内绑定格式标记、视频 ID、`key_version` 和 recipient key ID，阻止把另一对象的信封移入当前 manifest。
 4. manifest `version=2`，加入 `key_envelope` 与 `manifest_authentication`。后者以独立 KDF context 派生 HMAC-SM3 密钥，对去掉认证字段后的 canonical manifest（含信封、块清单、大小和摘要）认证。
 5. v2 恢复必须显式提供 `KeyProvider` 和数据库/调用方给出的预期视频 ID；先检查身份绑定、解包 key material 和 manifest HMAC，再验证块清单、认证并恢复。缺少 provider、key ID 错误、解包/认证失败均拒绝，不回退尝试 v1。
-6. v2 先作为独立原型 API，不改现有 API/云端默认写路径。完成可信密钥提供、数据库迁移与回滚策略之前，不宣称生产 KMS 或全局撤销。
+6. v2 先作为显式原型 API，不改现有 API/云端默认写路径。完成可信密钥提供、数据库迁移与回滚策略之前，不宣称生产 KMS 或全局撤销。
 
 ## 轮换语义
 
 - **接收方密钥轮换 / rewrap**：旧私钥解包 per-video key material，新公钥重新封装；块密文不变。写入新的对象副本，更新 HMAC 和外部 manifest 锚点，完整恢复校验通过后由调用方原子切换数据库引用。只要旧 manifest、缓存或备份仍留存，旧私钥仍可能恢复它们；不能声称全局旧密钥失效。
 - **per-video key 泄露 / 数据密钥轮换**：生成新的 key material 并重新加密全部分块；这与只更换接收方信封不同，需更高 I/O 和双份存储空间。
-- 本地文件批量原型已写原子 JSON journal，记录批次指纹、对象 ID、源摘要、目标摘要、尝试次数和错误类型；重跑会验证已完成目标并续跑失败对象。journal 不保存 key material。
-- 原型将目标对象写入新存储根并完整认证恢复后再发布，源对象保持可读；它不会切换应用数据库引用，也不处置缓存、备份/快照或旧副本。服务级队列、外部状态切换/审计和全局撤销仍未实现。
+- 本地文件批量原型保留原子 JSON journal 路径；另有 `rotation_control.py` 提供单 SQLite 数据库内的持久化任务/对象清单、重试和显式中断恢复。
+- worker 先发布并认证恢复目标，再在一个数据库事务中 CAS 切换 `storage_id`、manifest SHA-256 锚点、key ID/version 和审计事件；源文件保留供回滚/处置。文件发布与 SQLite 提交不是跨存储原子事务，崩溃可能留下目标副本，由确定性目标路径支持恢复。
+- 原型能盘点已引用对象、常见未引用副本、配置的特征缓存与配置备份目录；可使缓存失效，管理员 API 可在对象实际迁移/删除后登记处置证据。目录遗漏、外部备份、数据库快照和灾备介质仍依赖运维清单与独立核验。发现隐藏暂存项或未知存储项时，清单完整性门槛失败，需清理后重新建计划。
+- 若 artifact 关联仍在使用旧对象的任务，数据库层拒绝登记其已迁移/删除；必须先成功切换任务引用，再处置旧源副本或备份。
+- 撤销前门槛包括数据库引用、任务项、已登记缓存/副本、inventory digest、写入围栏和在途读取排空。写入围栏、读取排空、外部备份完整性目前是部署配置/运维确认，不是跨节点强制栅栏。KMS 回执接口只验证调用流程，不证明真实密钥已由生产 KMS 全局撤销。
+- 当前队列和引用切换仅适用于单机 SQLite 原型；这不是分布式任务队列，也不是数据库与对象存储间的原子提交协议。旧密钥失效率 100% 尚未证明。
 
 ## 选择性加密
 
@@ -48,19 +52,20 @@
 - v1 现有样本仍可恢复；v2 小样本能跨 SM2 provider 封装/解封、完成分块认证恢复及源摘要校验。
 - 修改 v2 manifest、换 recipient key ID、错误预期视频 ID、错误私钥和改写块都必须失败，且不发布部分明文。
 - 轮换验证源对象仍可读，目标对象由新 provider 恢复一致；未完成外部引用切换前不删除源对象。
-- 批量轮换与旧密钥全局失效只有在真实 KMS/存储/缓存/备份清单、恢复演练及持久化批任务完成后才可验收。
+- 批量轮换与旧密钥全局失效只有在真实 KMS/存储/缓存/备份清单、恢复演练、分布式持久化批任务及外部撤销核验完成后才可验收。
 
 ## 当前原型实现记录
 
-- `src/facecheck/key_management.py` 提供 `VideoKeyProvider` 协议和显式注入密钥的 `Sm2MemoryKeyProvider`；它不是 KMS，且不会把私钥持久化。
+- `src/facecheck/key_management.py` 提供 `VideoKeyProvider`、`PinnedVideoKeyDirectory`、provider registry/factory 接口及 `Sm2MemoryKeyProvider`。pin 必须通过独立受保护配置提供；实际生产信任根和 KMS/HSM 集成未部署。
 - `src/facecheck/storage.py` 的 `store_enveloped_video` / `restore_enveloped_video` 写读 manifest v2；旧版 `store_encrypted_video` / `restore_encrypted_video` 仍保持 v1 行为。
-- `rewrap_enveloped_video` 与 `src/facecheck/key_rotation.py` 的 `rotate_enveloped_batch` 可生成独立目标副本并用目标 provider 完整恢复校验；数据库引用切换仍由后续服务集成负责。
-- 新增的小型测试覆盖 v1 兼容、v2 往返、manifest/分块篡改、错误接收方、单视频 rewrap 和批次断点续跑。测试密钥只用于本地合成样本。
+- `rewrap_enveloped_video` 与 `src/facecheck/key_rotation.py` 的 `rotate_enveloped_batch` 保留文件 journal 路径；`src/facecheck/rotation_control.py` 另提供 SQLite 单机任务队列、数据库 CAS 切换、缓存失效和撤销门槛原型。
+- 定向合成测试覆盖 v1/v2、篡改拒绝、rewrap、数据库指针切换/manifest 锚点、CAS 冲突、中断恢复、缓存失效、inventory 阻塞及撤销回调。测试密钥和回执仅用于本地合成样本。
+- v1 转 v2 时会在受限临时目录短暂生成明文；正常退出会清理，强制终止可能留下 staging 文件。当前清单会将隐藏/未知存储项标记为不完整并阻止撤销，但不自动安全擦除残留数据。
 - SM2 加密互操作目前只在同一 gmssl Python 实现内完成小样本往返；尚未验证与 GmSSL C、厂商密码机或独立证书工具的密文编码互通，也没有测密钥信封时延。
 
 ## 需要外部决策
 
 - 可信 SM2 公钥注册与 key ID 命名/撤销策略。
 - 私钥所在 HSM/KMS、访问策略、备份和灾难恢复责任。
-- 本地/云端数据库与对象存储的原子引用切换方式及备份保留期限。
+- 生产数据库与对象存储的可恢复引用切换协议及备份保留期限；现有 SQLite 原子事务仅覆盖数据库内字段。
 - 旧密钥失效统计范围是否包含数据库快照、离线备份、临时文件、缓存和灾备副本。

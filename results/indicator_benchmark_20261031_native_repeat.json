@@ -1,0 +1,176 @@
+{
+  "environment": {
+    "os": "macOS-26.6.2-arm64-arm-64bit",
+    "machine": "arm64",
+    "python": "3.9.6",
+    "backend": "gmssl-native",
+    "backend_library": "/opt/homebrew/opt/gmssl/lib/libgmssl.dylib",
+    "rounds": 5,
+    "warmups": 2,
+    "process_peak_rss_bytes": 418086912,
+    "memory_measurement": "process lifetime peak RSS; includes interpreter and imported libraries"
+  },
+  "sm2": {
+    "count": 1000,
+    "key_source": "random-process-local-test-key",
+    "sign": {
+      "median": 6215.594083965231,
+      "min": 6161.612971269897,
+      "max": 6251.702924803572,
+      "stddev": 37.95393143104295,
+      "unit": "ops/s"
+    },
+    "verify": {
+      "median": 1926.9400673465555,
+      "min": 1908.2729780144182,
+      "max": 1932.3508134593076,
+      "stddev": 10.676140849850492,
+      "unit": "ops/s"
+    },
+    "sign_seconds": {
+      "median": 0.16088566699999995,
+      "min": 0.15995641700000002,
+      "max": 0.16229516599999982,
+      "stddev": 0.0009847307048940638,
+      "unit": "seconds"
+    },
+    "verify_seconds": {
+      "median": 0.5189575,
+      "min": 0.5175043749999997,
+      "max": 0.5240340410000002,
+      "stddev": 0.0028946610320683156,
+      "unit": "seconds"
+    },
+    "verified": 1000
+  },
+  "sm4": {
+    "size_mib": 16,
+    "input_size_bytes": 16777216,
+    "byte_unit": "MB_decimal",
+    "backend": "gmssl-native",
+    "primitive_sm4_cbc_encrypt": {
+      "median": 87.58023260304502,
+      "min": 85.87721493576011,
+      "max": 87.90441035851359,
+      "stddev": 0.8271066018295072,
+      "unit": "MB/s_decimal"
+    },
+    "primitive_sm4_cbc_decrypt": {
+      "median": 97.43701042917435,
+      "min": 96.03855918256369,
+      "max": 98.19719597323272,
+      "stddev": 0.8546283399368885,
+      "unit": "MB/s_decimal"
+    },
+    "primitive_sm3_hmac": {
+      "median": 538.8293714077648,
+      "min": 533.9477318461674,
+      "max": 546.869132221421,
+      "stddev": 5.4854042092261475,
+      "unit": "MB/s_decimal"
+    },
+    "envelope_sm4_hmac_sm3_encrypt": {
+      "median": 74.85381319252271,
+      "min": 73.77878585059388,
+      "max": 75.44324256736701,
+      "stddev": 0.6147394395343384,
+      "unit": "MB/s_decimal"
+    },
+    "envelope_sm4_hmac_sm3_decrypt": {
+      "median": 81.47629988294548,
+      "min": 80.38441780124988,
+      "max": 82.28807964288862,
+      "stddev": 0.7688499189217844,
+      "unit": "MB/s_decimal"
+    },
+    "round_trip": true
+  },
+  "1080p": {
+    "resolution": "1920x1080",
+    "frames": 2,
+    "runs": [
+      {
+        "workers": 1,
+        "source_bytes": 2042740,
+        "encryption_ms": {
+          "median": 28.90483300000035,
+          "min": 28.50695799999947,
+          "max": 29.00816700000064,
+          "stddev": 0.1987895607910006,
+          "unit": "ms"
+        },
+        "mb_per_second": {
+          "median": 70.67122650388518,
+          "min": 70.41947876265174,
+          "max": 71.65759320935042,
+          "stddev": 0.4913171243912479,
+          "unit": "MB/s_decimal"
+        },
+        "chunk_count": 2
+      },
+      {
+        "workers": 4,
+        "source_bytes": 2042740,
+        "encryption_ms": {
+          "median": 22.10575000000148,
+          "min": 21.762750000000608,
+          "max": 22.2175,
+          "stddev": 0.18296382249414958,
+          "unit": "ms"
+        },
+        "mb_per_second": {
+          "median": 92.40763149858581,
+          "min": 91.94283785304377,
+          "max": 93.86405670239023,
+          "stddev": 0.7732745457926022,
+          "unit": "MB/s_decimal"
+        },
+        "chunk_count": 2
+      }
+    ]
+  },
+  "resolution_matrix": [
+    {
+      "resolution": "320x240",
+      "status": "ok",
+      "source_bytes": 1700,
+      "encryption_ms": 0.5910840000016293,
+      "chunk_count": 1
+    },
+    {
+      "resolution": "640x480",
+      "status": "ok",
+      "source_bytes": 4175,
+      "encryption_ms": 0.5858750000005131,
+      "chunk_count": 1
+    },
+    {
+      "resolution": "1280x720",
+      "status": "ok",
+      "source_bytes": 10775,
+      "encryption_ms": 0.7284999999992436,
+      "chunk_count": 1
+    },
+    {
+      "resolution": "1920x1080",
+      "status": "ok",
+      "source_bytes": 23315,
+      "encryption_ms": 0.8485000000000298,
+      "chunk_count": 1
+    },
+    {
+      "resolution": "2560x1440",
+      "status": "ok",
+      "source_bytes": 40475,
+      "encryption_ms": 1.0975000000001955,
+      "chunk_count": 1
+    }
+  ],
+  "api_10_concurrent": {
+    "concurrency": 10,
+    "requests": 10,
+    "successes": 10,
+    "success_rate": 1.0,
+    "wall_seconds": 0.12442270900000096
+  }
+}

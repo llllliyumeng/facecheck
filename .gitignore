@@ -19,8 +19,12 @@ env/
 *.key
 *.crt
 secrets/
-# Model files are tracked because this course repository distributes the
-# verified YuNet and SFace assets. Do not add unrelated model or data files.
+*.token
+deploy/private/
+deploy/runtime/
+# YuNet and SFace are tracked course assets. ArcFace is an optional 166 MiB
+# non-commercial research weight; keep the local copy out of ordinary Git.
+models/arcface_w600k_r50.onnx
 authorized-sample.mp4
 query-frame*.png
 
@@ -28,11 +32,13 @@ query-frame*.png
 data/
 uploads/
 storage/
-data/
 *.partial
 *.db
 *.sqlite
 *.sqlite3
+
+# Local report-generation workspace contains machine-specific QA renders.
+reports/course_report_20261101/work/
 
 # macOS
 .DS_Store

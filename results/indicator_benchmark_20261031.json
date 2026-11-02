@@ -1,0 +1,90 @@
+{
+  "environment": {
+    "opencv": "4.14.0",
+    "numpy": "2.0.2"
+  },
+  "sm2": {
+    "count": 1000,
+    "sign_ops_per_second": 261.5799424390355,
+    "verify_ops_per_second": 131.3468738606685,
+    "verified": 1000
+  },
+  "sm4": {
+    "size_mib": 16,
+    "encrypt_mb_per_second": 33.40874481604344,
+    "decrypt_mb_per_second": 35.667866059845444,
+    "round_trip": true
+  },
+  "1080p": {
+    "resolution": "1920x1080",
+    "frames": 2,
+    "runs": [
+      {
+        "workers": 1,
+        "source_bytes": 2042740,
+        "encryption_ms": 57.33970799999888,
+        "mb_per_second": 35.62522501858642,
+        "chunk_count": 2
+      },
+      {
+        "workers": 4,
+        "source_bytes": 2042740,
+        "encryption_ms": 38.683457999999504,
+        "mb_per_second": 52.80655105859528,
+        "chunk_count": 2
+      }
+    ]
+  },
+  "resolution_matrix": [
+    {
+      "resolution": "320x240",
+      "status": "ok",
+      "source_bytes": 1700,
+      "encryption_ms": 0.7616669999990222,
+      "chunk_count": 1
+    },
+    {
+      "resolution": "640x480",
+      "status": "ok",
+      "source_bytes": 4175,
+      "encryption_ms": 0.706042000000906,
+      "chunk_count": 1
+    },
+    {
+      "resolution": "1280x720",
+      "status": "ok",
+      "source_bytes": 10775,
+      "encryption_ms": 0.9547909999998438,
+      "chunk_count": 1
+    },
+    {
+      "resolution": "1920x1080",
+      "status": "ok",
+      "source_bytes": 23315,
+      "encryption_ms": 1.2140830000006986,
+      "chunk_count": 1
+    },
+    {
+      "resolution": "2560x1440",
+      "status": "ok",
+      "source_bytes": 40475,
+      "encryption_ms": 1.7480420000008934,
+      "chunk_count": 1
+    }
+  ],
+  "api_10_concurrent": {
+    "concurrency": 10,
+    "requests": 10,
+    "successes": 10,
+    "success_rate": 1.0,
+    "wall_seconds": 0.12488166700000036
+  },
+  "security_rejection": {
+    "tamper_trials": 100,
+    "tamper_detected": 100,
+    "tamper_detection_rate": 1.0,
+    "unauthorized_trials": 100,
+    "unauthorized_decryptions": 0,
+    "unauthorized_success_rate": 0.0
+  }
+}

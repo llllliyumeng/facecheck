@@ -1,0 +1,75 @@
+{
+  "protocol": "facecheck-stage2-rotation-control-smoke-v1",
+  "created_at_utc": "2026-11-02T05:10:24.828123+00:00",
+  "status": "passed",
+  "repository_revision": "77ee8ad768894498c90e76c48b213f8d92d18800",
+  "working_tree_was_modified": true,
+  "supersedes": "results/phase2_rotation_control_smoke_20261102_v4.json",
+  "test_runs": [
+    {
+      "command": ".venv/bin/python -m pytest -q tests/test_rotation_control.py tests/test_cloud_access.py::test_auditor_is_not_read_only_plaintext_access tests/test_indicator_evaluation.py",
+      "exit_code": 0,
+      "tests_passed": 13,
+      "scope": "small synthetic rotation, artifact-order, administrator route, role-gate and indicator-evaluator tests only"
+    }
+  ],
+  "validation_runs": [
+    {
+      "command": ".venv/bin/python -m py_compile scripts/evaluate_indicators.py tests/test_indicator_evaluation.py",
+      "exit_code": 0,
+      "scope": "syntax compilation of final evaluator source and regression test"
+    }
+  ],
+  "runtime_environment": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "machine": "arm64",
+    "python": "3.9.6 (default, May 22 2026, 11:13:45) \n[Clang 21.0.0 (clang-2100.1.1.101)]",
+    "gmssl_python_version": "unknown"
+  },
+  "checks": [
+    "SQLite queue and interrupted worker recovery",
+    "atomic SQLite task pointer, manifest anchor and key metadata switch with audit event",
+    "stale source CAS rejection",
+    "v1 re-encryption versus v2 recipient rewrap distinction",
+    "cache invalidation and unresolved artifact revocation gates",
+    "old task artifact cannot be marked migrated/deleted before pointer switch",
+    "hidden staging and unannotated legacy rows fail closed",
+    "duplicate source key plan rejection",
+    "administrator route validation and role gate",
+    "indicator evaluator links rotation status to rotation-control evidence and retains PARTIAL"
+  ],
+  "implementation": {
+    "pinned_public_key_directory_helper": true,
+    "production_trusted_directory_deployment": false,
+    "production_kms_or_hsm_adapter": false,
+    "single_instance_sqlite_queue": true,
+    "distributed_task_queue": false,
+    "sqlite_transactional_reference_and_manifest_anchor_switch": true,
+    "cross_system_storage_database_atomic_transaction": false,
+    "feature_cache_inventory_and_invalidation": true,
+    "configured_backup_and_replica_inventory": true,
+    "externally_verified_complete_backup_inventory": false,
+    "global_old_key_revocation_proven": false,
+    "formal_recognition_or_throughput_metrics_changed": false
+  },
+  "limitations": [
+    "rewrap does not replace exposed per-video key material; compromise requires full data re-encryption",
+    "v1-to-v2 migration temporarily materializes plaintext in restricted staging; forced termination may leave staging data",
+    "writer fencing, reader drain and external backup completeness rely on operator/deployment attestations",
+    "SQLite and object storage do not share an atomic transaction; deterministic publication is local saga recovery",
+    "no production KMS/HSM revocation or complete external backup/disaster-recovery inventory was exercised"
+  ],
+  "files_sha256": {
+    "src/facecheck/rotation_control.py": "d26831876d71b64e54fcd0030aa4d1222fcb2024df06d8bd97c2bc3b6d7f668d",
+    "src/facecheck/platform_api.py": "a6873f07e2f0d12bf42582d300e80c01a9ffbf7fa023d5ae9a13917c60345feb",
+    "src/facecheck/key_management.py": "325eaeaba4810a32ecd21a09826e72d8d11f64695e865afa6f4852f9da76b54a",
+    "src/facecheck/feature_store.py": "825cb8e2f6564bd24534655b57a31f89197e09665051a0b78c7b8e94da4e5ee2",
+    "src/facecheck/platform_catalog.py": "9151b2188a3b1e0ae0198b56f8a81c1a83fb30362d4b14a6542beaa62b87bbd4",
+    "scripts/run_key_rotation_worker.py": "be1d79d9a4cfd6e6f2e718467dd8affad8e354fbd68d25b6446d5c9f29df5ea2",
+    "scripts/evaluate_indicators.py": "1c0ee633c2997f51d209d778ad839fce2ea8e71ea4fda77c161a59850bc8e470",
+    "tests/test_rotation_control.py": "61fbabb1bf26fd630735c37ef4bee676fb03a67742b0b17702f2508719334220",
+    "tests/test_cloud_access.py": "bcc624afa8fc9419c2747c1faaa4d348c7bd1c23ead74580f0f76b9a8d8277b3",
+    "tests/test_indicator_evaluation.py": "cb3e863b5e53c90a71bd3d5b3a757356d6283755b94ea610612736ba6933d716"
+  },
+  "scope_note": "Small synthetic functional evidence only. It does not prove production key management, global revocation, scale, or 100 percent old-key invalidation. Formal recognition and throughput results are unchanged."
+}

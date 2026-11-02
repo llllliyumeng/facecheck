@@ -13,7 +13,7 @@ import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import Callable, Dict, Iterator, List, Optional, Tuple
 
 from .chunks import iter_file_chunks
 from .crypto import derive_storage_keys, sm3_hmac, sm3_kdf, sm4_decrypt, sm4_encrypt
@@ -618,6 +618,60 @@ def restore_enveloped_video(
         key_provider=key_provider,
         expected_video_id=expected_video_id,
     )
+
+
+def restore_video_object(
+    stored_directory: Path,
+    destination: Path,
+    encryption_key: Optional[bytes],
+    mac_key: Optional[bytes],
+    *,
+    expected_video_id: str,
+    expected_manifest_sha256: Optional[str] = None,
+    key_provider_resolver: Optional[Callable[[str], VideoKeyProvider]] = None,
+    stats: Optional[Dict[str, float]] = None,
+    workers: int = 1,
+) -> Path:
+    """Restore a registered v1 or v2 object without format downgrade fallback."""
+    manifest_path = stored_directory / MANIFEST_NAME
+    if (stored_directory.is_symlink() or manifest_path.is_symlink()
+            or not manifest_path.is_file() or manifest_path.stat().st_size > 1024 * 1024):
+        raise StorageError("stored manifest is unavailable or unsafe")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        raise StorageError("stored manifest is invalid") from None
+    if not isinstance(manifest, dict) or manifest.get("video_id") != expected_video_id:
+        raise StorageError("stored video identity does not match the trusted task")
+    version = manifest.get("version")
+    if isinstance(version, bool) or not isinstance(version, int):
+        raise StorageError("unsupported manifest version")
+    if version == MANIFEST_VERSION:
+        if not isinstance(encryption_key, bytes) or not isinstance(mac_key, bytes):
+            raise StorageError("v1 restore requires encryption and MAC keys")
+        return restore_encrypted_video(
+            stored_directory, destination, encryption_key, mac_key,
+            stats=stats, workers=workers,
+            expected_manifest_sha256=expected_manifest_sha256,
+            expected_video_id=expected_video_id,
+        )
+    if version == ENVELOPED_MANIFEST_VERSION:
+        if key_provider_resolver is None:
+            raise StorageError("v2 key provider directory is unavailable")
+        try:
+            wrapped = WrappedVideoKey.from_manifest(manifest.get("key_envelope"))
+            provider = key_provider_resolver(wrapped.key_id)
+        except Exception:
+            raise StorageError("video key is unavailable") from None
+        if provider.key_id != wrapped.key_id:
+            raise StorageError("video key directory returned the wrong key")
+        return restore_enveloped_video(
+            stored_directory, destination, provider,
+            expected_video_id=expected_video_id,
+            expected_manifest_sha256=expected_manifest_sha256,
+            stats=stats, workers=workers,
+        )
+    raise StorageError("unsupported manifest version")
 
 
 def rewrap_enveloped_video(

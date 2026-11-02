@@ -9,7 +9,9 @@ cd "$PROJECT_ROOT"
 : "${FACECHECK_DATA_ROOT:=$PROJECT_ROOT/data}"
 : "${FACECHECK_YUNET_MODEL:=$PROJECT_ROOT/models/face_detection_yunet_2023mar.onnx}"
 : "${FACECHECK_SFACE_MODEL:=$PROJECT_ROOT/models/face_recognition_sface_2021dec.onnx}"
-export FACECHECK_DATA_ROOT FACECHECK_YUNET_MODEL FACECHECK_SFACE_MODEL
+: "${FACECHECK_ARCFACE_MODEL:=$PROJECT_ROOT/models/arcface_w600k_r50.onnx}"
+: "${FACECHECK_RECOGNITION_MODEL:=arcface}"
+export FACECHECK_DATA_ROOT FACECHECK_YUNET_MODEL FACECHECK_SFACE_MODEL FACECHECK_ARCFACE_MODEL FACECHECK_RECOGNITION_MODEL
 
 if [[ -z "${FACECHECK_SM4_KEY:-}" ]]; then
   export FACECHECK_SM4_KEY="0123456789abcdef"
@@ -25,9 +27,13 @@ if [[ ! -f "$FACECHECK_YUNET_MODEL" ]]; then
   echo "请将模型放入 models/，或设置 FACECHECK_YUNET_MODEL。" >&2
   exit 1
 fi
-if [[ ! -f "$FACECHECK_SFACE_MODEL" ]]; then
-  echo "错误：SFace 模型不存在：$FACECHECK_SFACE_MODEL" >&2
-  echo "请将模型放入 models/，或设置 FACECHECK_SFACE_MODEL。" >&2
+case "$FACECHECK_RECOGNITION_MODEL" in
+  arcface) selected_model="$FACECHECK_ARCFACE_MODEL" ;;
+  sface) selected_model="$FACECHECK_SFACE_MODEL" ;;
+  *) echo "错误：FACECHECK_RECOGNITION_MODEL 必须为 arcface 或 sface。" >&2; exit 1 ;;
+esac
+if [[ ! -f "$selected_model" ]]; then
+  echo "错误：${FACECHECK_RECOGNITION_MODEL} 模型不存在：$selected_model" >&2
   exit 1
 fi
 

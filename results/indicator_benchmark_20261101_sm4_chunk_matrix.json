@@ -1,0 +1,237 @@
+{
+  "environment": {
+    "os": "macOS-26.6.2-arm64-arm-64bit",
+    "machine": "arm64",
+    "python": "3.9.6",
+    "backend": "gmssl-native",
+    "backend_library": "/opt/homebrew/opt/gmssl/lib/libgmssl.dylib",
+    "total_input_bytes": 16777216,
+    "byte_unit": "MB_decimal",
+    "rounds": 7,
+    "warmups": 3,
+    "workers": 4,
+    "data_source": "process-local cryptographically random test data"
+  },
+  "chunk_sizes": [
+    {
+      "chunk_size_bytes": 65536,
+      "chunk_count": 256,
+      "primitive_cbc_encrypt": {
+        "median_seconds": 0.18082983300000022,
+        "min_seconds": 0.17979362500000007,
+        "max_seconds": 0.1810619160000002,
+        "stddev_seconds": 0.00045925523099601625,
+        "throughput_MB_s": 92.77902723053435
+      },
+      "primitive_cbc_decrypt": {
+        "median_seconds": 0.13902600000000032,
+        "min_seconds": 0.13873762499999964,
+        "max_seconds": 0.13933379100000032,
+        "stddev_seconds": 0.00020232749083924582,
+        "throughput_MB_s": 120.67682304029434
+      },
+      "hmac_sm3_per_chunk": {
+        "median_seconds": 0.06354633299999968,
+        "min_seconds": 0.06350970899999986,
+        "max_seconds": 0.0636183749999999,
+        "stddev_seconds": 3.246978217986407e-05,
+        "throughput_MB_s": 264.0154861492965
+      },
+      "envelope_encrypt": {
+        "median_seconds": 0.2480385829999996,
+        "min_seconds": 0.24430904200000025,
+        "max_seconds": 0.24846287499999953,
+        "stddev_seconds": 0.001478929576028547,
+        "throughput_MB_s": 67.63954138538207
+      },
+      "envelope_decrypt": {
+        "median_seconds": 0.20464479199999985,
+        "min_seconds": 0.20438562500000046,
+        "max_seconds": 0.20491949999999903,
+        "stddev_seconds": 0.00016794596597749555,
+        "throughput_MB_s": 81.98213028553403
+      },
+      "storage_encrypt": {
+        "1": {
+          "median_seconds": 0.30481704099999973,
+          "min_seconds": 0.30417837499999933,
+          "max_seconds": 0.30851633300000003,
+          "stddev_seconds": 0.001476757169606259,
+          "throughput_MB_s": 55.0402823443195
+        },
+        "4": {
+          "median_seconds": 0.07960879100000007,
+          "min_seconds": 0.07936974999999968,
+          "max_seconds": 0.08032854200000017,
+          "stddev_seconds": 0.0003038308083796767,
+          "throughput_MB_s": 210.74577052677492
+        }
+      }
+    },
+    {
+      "chunk_size_bytes": 262144,
+      "chunk_count": 64,
+      "primitive_cbc_encrypt": {
+        "median_seconds": 0.17795920900000084,
+        "min_seconds": 0.17337262500000072,
+        "max_seconds": 0.17826679199999873,
+        "stddev_seconds": 0.0017607487791995314,
+        "throughput_MB_s": 94.27562694999347
+      },
+      "primitive_cbc_decrypt": {
+        "median_seconds": 0.13627508299999747,
+        "min_seconds": 0.1360744579999995,
+        "max_seconds": 0.13694633399999923,
+        "stddev_seconds": 0.00031659676204449054,
+        "throughput_MB_s": 123.11286576138289
+      },
+      "hmac_sm3_per_chunk": {
+        "median_seconds": 0.06251499999999766,
+        "min_seconds": 0.06242529099999672,
+        "max_seconds": 0.0626814170000003,
+        "stddev_seconds": 9.195870974143559e-05,
+        "throughput_MB_s": 268.37104694874233
+      },
+      "envelope_encrypt": {
+        "median_seconds": 0.24177187499999775,
+        "min_seconds": 0.24162554199999775,
+        "max_seconds": 0.24205991699999885,
+        "stddev_seconds": 0.000140567471756129,
+        "throughput_MB_s": 69.39275298253841
+      },
+      "envelope_decrypt": {
+        "median_seconds": 0.19962562499999947,
+        "min_seconds": 0.19936837499999882,
+        "max_seconds": 0.20009983299999945,
+        "stddev_seconds": 0.0002590000225073812,
+        "throughput_MB_s": 84.04339873701106
+      },
+      "storage_encrypt": {
+        "1": {
+          "median_seconds": 0.2717412079999981,
+          "min_seconds": 0.27105158299999843,
+          "max_seconds": 0.2793416670000006,
+          "stddev_seconds": 0.0028983204934162083,
+          "throughput_MB_s": 61.739682852959554
+        },
+        "4": {
+          "median_seconds": 0.07429508400000273,
+          "min_seconds": 0.07414729100000272,
+          "max_seconds": 0.07451837500000025,
+          "stddev_seconds": 0.00013474333051106908,
+          "throughput_MB_s": 225.81865578076986
+        }
+      }
+    },
+    {
+      "chunk_size_bytes": 1048576,
+      "chunk_count": 16,
+      "primitive_cbc_encrypt": {
+        "median_seconds": 0.17788054200000047,
+        "min_seconds": 0.1777934160000001,
+        "max_seconds": 0.17795354100000083,
+        "stddev_seconds": 5.598347776503048e-05,
+        "throughput_MB_s": 94.31731999107555
+      },
+      "primitive_cbc_decrypt": {
+        "median_seconds": 0.13519099999999895,
+        "min_seconds": 0.13468433399999924,
+        "max_seconds": 0.13571629100000138,
+        "stddev_seconds": 0.0003448705243125561,
+        "throughput_MB_s": 124.1000954205541
+      },
+      "hmac_sm3_per_chunk": {
+        "median_seconds": 0.06234154200000219,
+        "min_seconds": 0.06223683300000005,
+        "max_seconds": 0.06239837500000078,
+        "stddev_seconds": 5.6139006249451625e-05,
+        "throughput_MB_s": 269.11775778660416
+      },
+      "envelope_encrypt": {
+        "median_seconds": 0.24038933299999954,
+        "min_seconds": 0.24013258300000118,
+        "max_seconds": 0.24122475000000065,
+        "stddev_seconds": 0.00035002901621304915,
+        "throughput_MB_s": 69.79184887542424
+      },
+      "envelope_decrypt": {
+        "median_seconds": 0.19822458299999823,
+        "min_seconds": 0.19755833300000347,
+        "max_seconds": 0.19955279199999865,
+        "stddev_seconds": 0.0006397190740993164,
+        "throughput_MB_s": 84.63741351394418
+      },
+      "storage_encrypt": {
+        "1": {
+          "median_seconds": 0.26369920800000557,
+          "min_seconds": 0.263284665999997,
+          "max_seconds": 0.2641077909999936,
+          "stddev_seconds": 0.0003231913122034256,
+          "throughput_MB_s": 63.622549825783494
+        },
+        "4": {
+          "median_seconds": 0.07393254200000143,
+          "min_seconds": 0.07345929099999893,
+          "max_seconds": 0.07415062500000147,
+          "stddev_seconds": 0.00024587779488372555,
+          "throughput_MB_s": 226.92599964978444
+        }
+      }
+    },
+    {
+      "chunk_size_bytes": 4194304,
+      "chunk_count": 4,
+      "primitive_cbc_encrypt": {
+        "median_seconds": 0.17844725000000494,
+        "min_seconds": 0.17809870800000027,
+        "max_seconds": 0.1785621670000026,
+        "stddev_seconds": 0.00015413692698150602,
+        "throughput_MB_s": 94.01778957086498
+      },
+      "primitive_cbc_decrypt": {
+        "median_seconds": 0.1355041250000042,
+        "min_seconds": 0.1351139999999944,
+        "max_seconds": 0.13579345800000198,
+        "stddev_seconds": 0.0002526650009777837,
+        "throughput_MB_s": 123.8133230261402
+      },
+      "hmac_sm3_per_chunk": {
+        "median_seconds": 0.062249457999996594,
+        "min_seconds": 0.06211604100000301,
+        "max_seconds": 0.06238100000000202,
+        "stddev_seconds": 9.508720809945862e-05,
+        "throughput_MB_s": 269.5158566681965
+      },
+      "envelope_encrypt": {
+        "median_seconds": 0.24111175000000173,
+        "min_seconds": 0.24100695899999636,
+        "max_seconds": 0.24190383299999496,
+        "stddev_seconds": 0.00032110693667628074,
+        "throughput_MB_s": 69.58273912407786
+      },
+      "envelope_decrypt": {
+        "median_seconds": 0.19904549999999688,
+        "min_seconds": 0.19779537500000544,
+        "max_seconds": 0.19933420800000334,
+        "stddev_seconds": 0.0005509417770978647,
+        "throughput_MB_s": 84.28834613191589
+      },
+      "storage_encrypt": {
+        "1": {
+          "median_seconds": 0.26526695899999453,
+          "min_seconds": 0.26502745899999525,
+          "max_seconds": 0.26924687500000033,
+          "stddev_seconds": 0.0015283134781270934,
+          "throughput_MB_s": 63.246534974604
+        },
+        "4": {
+          "median_seconds": 0.07660200000000117,
+          "min_seconds": 0.07635875000000425,
+          "max_seconds": 0.0775461249999978,
+          "stddev_seconds": 0.0004030222911849511,
+          "throughput_MB_s": 219.01798908644346
+        }
+      }
+    }
+  ]
+}

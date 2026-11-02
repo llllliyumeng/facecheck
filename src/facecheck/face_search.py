@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tempfile
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,12 +21,12 @@ from .face_embedding import (
     EmbeddingMatch,
     FaceEmbeddingError,
     RecognizerFactory,
-    SFaceConfig,
-    extract_embedding,
-    load_sface_recognizer,
+    clip_detection_to_image,
     search_embeddings,
 )
-from .storage import restore_encrypted_video
+from .key_management import VideoKeyProvider
+from .storage import restore_video_object
+from .recognition import RecognitionConfig, extract_recognition_embedding, load_recognizer, model_name
 from .video import ExtractedFrame, VideoProcessingError, extract_frames, read_video_info
 
 
@@ -36,10 +37,13 @@ class FaceSearchError(ValueError):
 @dataclass(frozen=True)
 class FaceSearchConfig:
     detection: FaceDetectionConfig
-    embedding: SFaceConfig
+    embedding: RecognitionConfig
     top_k: int = 10
     min_similarity: Optional[float] = None
     max_processing_seconds: float = 60.0
+    clip_detections_to_image: bool = True
+    restore_workers: int = 1
+    expected_manifest_sha256: Optional[str] = None
 
     def validate(self) -> None:
         self.detection.validate()
@@ -50,6 +54,12 @@ class FaceSearchConfig:
             raise ValueError("min_similarity must be finite")
         if self.max_processing_seconds <= 0:
             raise ValueError("max_processing_seconds must be greater than zero")
+        if self.expected_manifest_sha256 is not None and not re.fullmatch(r"[0-9a-f]{64}", self.expected_manifest_sha256):
+            raise ValueError("manifest anchor must be a SHA-256 hex digest")
+        if (isinstance(self.restore_workers, bool)
+                or not isinstance(self.restore_workers, int)
+                or self.restore_workers <= 0):
+            raise ValueError("restore_workers must be greater than zero")
 
 
 @dataclass(frozen=True)
@@ -61,7 +71,7 @@ class FaceSearchResult:
 
 
 @dataclass(frozen=True)
-class _Candidate:
+class FaceCandidate:
     candidate_id: str
     frame_index: int
     timestamp_seconds: float
@@ -114,6 +124,7 @@ def _search_frames(
     recognizer_factory: Optional[RecognizerFactory],
     clock: Callable[[], float],
     stats: Optional[Dict[str, float]],
+    candidate_sink: Optional[Callable] = None,
 ) -> Tuple[FaceSearchResult, ...]:
     started = clock()
     detector: FaceDetector = (
@@ -122,7 +133,7 @@ def _search_frames(
         else load_yunet_detector(config.detection)
     )
     recognizer = None
-    candidates: List[_Candidate] = []
+    candidates: List[FaceCandidate] = []
     detection_seconds = 0.0
     embedding_seconds = 0.0
     for frame in frames:
@@ -148,9 +159,11 @@ def _search_frames(
                     recognizer = (
                         recognizer_factory(config.embedding)
                         if recognizer_factory is not None
-                        else load_sface_recognizer(config.embedding)
+                        else load_recognizer(config.embedding)
                     )
-                embedding = extract_embedding(
+                if config.clip_detections_to_image:
+                    detection = clip_detection_to_image(detection, frame.image.shape)
+                embedding = extract_recognition_embedding(
                     frame.image,
                     detection,
                     config.embedding,
@@ -163,7 +176,7 @@ def _search_frames(
                     f"face {face_index}"
                 ) from exc
             candidates.append(
-                _Candidate(
+                FaceCandidate(
                     candidate_id=f"frame-{frame.index}-face-{face_index}",
                     frame_index=frame.index,
                     timestamp_seconds=frame.timestamp_seconds,
@@ -173,8 +186,17 @@ def _search_frames(
 
     if stats is not None:
         stats["face_detection_seconds"] = round(detection_seconds, 6)
-        stats["sface_embedding_seconds"] = round(embedding_seconds, 6)
+        stats["feature_extraction_seconds"] = round(embedding_seconds, 6)
+        if model_name(config.embedding) == "sface":
+            stats["sface_embedding_seconds"] = round(embedding_seconds, 6)
         stats["feature_count"] = len(candidates)
+    if candidate_sink is not None:
+        candidate_sink(candidates)
+    return rank_candidates(query, candidates, config, stats=stats, clock=clock)
+
+
+def rank_candidates(query, candidates, config, *, stats=None, clock=time.monotonic):
+    """Use the identical scoring path for freshly extracted and cached vectors."""
     similarity_started = clock()
     matches = search_embeddings(
         query,
@@ -186,7 +208,7 @@ def _search_frames(
     if stats is not None:
         stats["similarity_sort_seconds"] = round(clock() - similarity_started, 6)
         stats["result_count"] = len(matches)
-    metadata: Dict[str, _Candidate] = {
+    metadata: Dict[str, FaceCandidate] = {
         candidate.candidate_id: candidate for candidate in candidates
     }
     return tuple(
@@ -209,6 +231,7 @@ def search_video(
     recognizer_factory: Optional[RecognizerFactory] = None,
     clock: Callable[[], float] = time.monotonic,
     stats: Optional[Dict[str, float]] = None,
+    candidate_sink: Optional[Callable] = None,
 ) -> Tuple[FaceSearchResult, ...]:
     config.validate()
     try:
@@ -236,6 +259,7 @@ def search_video(
             recognizer_factory=recognizer_factory,
             clock=clock,
             stats=stats,
+            candidate_sink=candidate_sink,
         )
     except FaceSearchError:
         raise
@@ -247,14 +271,17 @@ def search_encrypted_video(
     stored_directory: Path,
     query: np.ndarray,
     config: FaceSearchConfig,
-    encryption_key: bytes,
-    mac_key: bytes,
+    encryption_key: Optional[bytes],
+    mac_key: Optional[bytes],
     *,
+    expected_video_id: Optional[str] = None,
+    key_provider_resolver: Optional[Callable[[str], VideoKeyProvider]] = None,
     temp_root: Optional[Path] = None,
     detector_factory: Optional[DetectorFactory] = None,
     recognizer_factory: Optional[RecognizerFactory] = None,
     clock: Callable[[], float] = time.monotonic,
     stats: Optional[Dict[str, float]] = None,
+    candidate_sink: Optional[Callable] = None,
 ) -> Tuple[FaceSearchResult, ...]:
     config.validate()
     try:
@@ -264,12 +291,16 @@ def search_encrypted_video(
         ) as directory:
             restore_started = clock()
             restored_path = Path(directory) / "restored-video"
-            restore_encrypted_video(
+            restore_video_object(
                 stored_directory,
                 restored_path,
                 encryption_key,
                 mac_key,
+                expected_video_id=expected_video_id or stored_directory.name,
                 stats=stats,
+                workers=config.restore_workers,
+                expected_manifest_sha256=config.expected_manifest_sha256,
+                key_provider_resolver=key_provider_resolver,
             )
             if stats is not None:
                 stats["restore_and_integrity_seconds"] = round(
@@ -283,6 +314,7 @@ def search_encrypted_video(
                 recognizer_factory=recognizer_factory,
                 clock=clock,
                 stats=stats,
+                candidate_sink=candidate_sink,
             )
     except FaceSearchError:
         raise

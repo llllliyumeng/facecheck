@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import hmac
+import importlib
 import json
+import os
 import re
 from dataclasses import dataclass
-from typing import Mapping, Protocol
+from typing import Callable, Mapping, Protocol, Sequence
 
 from .crypto import sm2_decrypt, sm2_encrypt
 
@@ -24,6 +27,194 @@ KEY_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
 class KeyManagementError(ValueError):
     """Raised when a key envelope cannot be safely created or opened."""
+
+
+@dataclass(frozen=True)
+class PublicVideoKeyRecord:
+    """Non-secret key-directory record; trust comes from the pinned digest."""
+
+    key_id: str
+    algorithm: str
+    public_key: str
+    status: str = "active"
+
+    def as_dict(self) -> dict[str, str]:
+        return {
+            "key_id": self.key_id,
+            "algorithm": self.algorithm,
+            "public_key": self.public_key,
+            "status": self.status,
+        }
+
+
+class PinnedVideoKeyDirectory:
+    """Validate a public-key directory against a digest supplied by a trust anchor.
+
+    The digest must arrive through a separately protected configuration channel.
+    This class does not make a writable local JSON file a production trust root.
+    """
+
+    def __init__(self, records: Sequence[PublicVideoKeyRecord], pinned_sha256: str):
+        if not isinstance(pinned_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", pinned_sha256):
+            raise KeyManagementError("public key directory pin is invalid")
+        if (any(not isinstance(record, PublicVideoKeyRecord) for record in records)
+                or any(not isinstance(record.key_id, str) for record in records)):
+            raise KeyManagementError("public key directory is invalid")
+        normalized = sorted(records, key=lambda record: record.key_id)
+        if not normalized or len({record.key_id for record in normalized}) != len(normalized):
+            raise KeyManagementError("public key directory is invalid")
+        active = 0
+        for record in normalized:
+            if (not isinstance(record.key_id, str)
+                    or not KEY_ID_PATTERN.fullmatch(record.key_id)
+                    or not isinstance(record.algorithm, str)
+                    or record.algorithm != WRAPPED_KEY_ALGORITHM
+                    or not isinstance(record.status, str)
+                    or record.status not in {"active", "decrypt_only", "revoked"}
+                    or not isinstance(record.public_key, str)):
+                raise KeyManagementError("public key directory is invalid")
+            public_hex = record.public_key[2:] if record.public_key.startswith("04") else record.public_key
+            try:
+                public_bytes = bytes.fromhex(public_hex)
+            except ValueError:
+                raise KeyManagementError("public key directory is invalid") from None
+            if len(public_bytes) != 64:
+                raise KeyManagementError("public key directory is invalid")
+            active += record.status == "active"
+        if active != 1:
+            raise KeyManagementError("public key directory must have exactly one active key")
+        payload = json.dumps(
+            {"version": 1, "records": [record.as_dict() for record in normalized]},
+            sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+        ).encode("utf-8")
+        digest = hashlib.sha256(payload).hexdigest()
+        if not hmac.compare_digest(digest, pinned_sha256):
+            raise KeyManagementError("public key directory pin mismatch")
+        self._records = {record.key_id: record for record in normalized}
+        self.sha256 = digest
+
+    @classmethod
+    def from_file(cls, path, *, pinned_sha256: str) -> "PinnedVideoKeyDirectory":
+        """Load public records from a file whose digest is pinned separately."""
+        from pathlib import Path
+
+        directory_path = Path(path)
+        if (directory_path.is_symlink() or not directory_path.is_file()
+                or directory_path.stat().st_size > 64 * 1024):
+            raise KeyManagementError("public key directory file is unavailable or unsafe")
+        try:
+            root = json.loads(directory_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            raise KeyManagementError("public key directory file is invalid") from None
+        if (not isinstance(root, dict) or set(root) != {"version", "records"}
+                or isinstance(root.get("version"), bool) or root.get("version") != 1
+                or not isinstance(root.get("records"), list)):
+            raise KeyManagementError("public key directory file is invalid")
+        records = []
+        for value in root["records"]:
+            if (not isinstance(value, dict)
+                    or set(value) != {"key_id", "algorithm", "public_key", "status"}):
+                raise KeyManagementError("public key directory file is invalid")
+            try:
+                records.append(PublicVideoKeyRecord(**value))
+            except TypeError:
+                raise KeyManagementError("public key directory file is invalid") from None
+        return cls(records, pinned_sha256)
+
+    @classmethod
+    def digest_records(cls, records: Sequence[PublicVideoKeyRecord]) -> str:
+        normalized = sorted(records, key=lambda record: record.key_id)
+        payload = json.dumps(
+            {"version": 1, "records": [record.as_dict() for record in normalized]},
+            sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+        ).encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()
+
+    def active_for_wrap(self) -> PublicVideoKeyRecord:
+        return next(record for record in self._records.values() if record.status == "active")
+
+    def resolve(self, key_id: str, *, for_decryption: bool = True) -> PublicVideoKeyRecord:
+        record = self._records.get(key_id)
+        if record is None or record.status == "revoked":
+            raise KeyManagementError("video key is unavailable")
+        if not for_decryption and record.status != "active":
+            raise KeyManagementError("video key cannot be used for new envelopes")
+        return record
+
+
+class VideoKeyProviderRegistry:
+    """In-process provider router used by tests and local adapters.
+
+    Production implementations should keep lifecycle state in the KMS/HSM and
+    use this interface only as a request router, not as the revocation authority.
+    """
+
+    def __init__(self, providers: Sequence[VideoKeyProvider], active_key_id: str):
+        by_id = {provider.key_id: provider for provider in providers}
+        if (not by_id or len(by_id) != len(providers)
+                or active_key_id not in by_id):
+            raise KeyManagementError("video key provider registry is invalid")
+        self._providers = by_id
+        self._active_key_id = active_key_id
+        self._states = {key_id: "active" if key_id == active_key_id else "decrypt_only"
+                        for key_id in by_id}
+
+    def active_for_wrap(self) -> VideoKeyProvider:
+        if self._states.get(self._active_key_id) != "active":
+            raise KeyManagementError("active video key is unavailable")
+        return self._providers[self._active_key_id]
+
+    def resolve(self, key_id: str) -> VideoKeyProvider:
+        if self._states.get(key_id) not in {"active", "decrypt_only"}:
+            raise KeyManagementError("video key is unavailable")
+        return self._providers[key_id]
+
+    def activate(self, key_id: str) -> None:
+        if key_id not in self._providers or self._states.get(key_id) == "revoked":
+            raise KeyManagementError("video key is unavailable")
+        for existing in self._states:
+            if self._states[existing] == "active":
+                self._states[existing] = "decrypt_only"
+        self._states[key_id] = "active"
+        self._active_key_id = key_id
+
+    def revoke(self, key_id: str, *, readiness_check: Callable[[str], bool]) -> None:
+        if key_id not in self._providers or key_id == self._active_key_id:
+            raise KeyManagementError("active or unknown video key cannot be revoked")
+        if not readiness_check(key_id):
+            raise KeyManagementError("video key still has registered references")
+        self._states[key_id] = "revoked"
+        self._providers.pop(key_id, None)
+
+
+def load_video_key_provider_bundle(factory_spec: str | None = None) -> dict[str, object] | None:
+    """Load a deployment supplied provider adapter from trusted process config."""
+    spec = factory_spec if factory_spec is not None else os.getenv(
+        "FACECHECK_VIDEO_KEY_PROVIDER_FACTORY", "",
+    )
+    if not spec:
+        return None
+    module_name, separator, factory_name = spec.partition(":")
+    if not separator or not module_name or not factory_name:
+        raise KeyManagementError("video key provider factory configuration is invalid")
+    try:
+        factory = getattr(importlib.import_module(module_name), factory_name)
+        bundle = factory()
+    except Exception:
+        raise KeyManagementError("video key provider adapter is unavailable") from None
+    if not isinstance(bundle, Mapping):
+        raise KeyManagementError("video key provider adapter returned invalid metadata")
+    target = bundle.get("target_provider")
+    resolver = bundle.get("source_provider_resolver")
+    revoker = bundle.get("revoke_key")
+    if (not isinstance(getattr(target, "key_id", None), str)
+            or not callable(getattr(target, "wrap_video_key", None))
+            or not callable(getattr(target, "unwrap_video_key", None))
+            or not callable(resolver)
+            or (revoker is not None and not callable(revoker))):
+        raise KeyManagementError("video key provider adapter returned invalid interfaces")
+    return {"target_provider": target, "source_provider_resolver": resolver,
+            "revoke_key": revoker}
 
 
 @dataclass(frozen=True)

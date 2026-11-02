@@ -1,0 +1,303 @@
+{
+  "protocol": "facecheck-course-indicator-review-v1",
+  "statuses": [
+    "PASS",
+    "FAIL",
+    "PARTIAL",
+    "NOT_MEASURED",
+    "NOT_IMPLEMENTED"
+  ],
+  "dataset": {
+    "identities": 1004,
+    "gallery_videos": 1004,
+    "query_images": 1004,
+    "gallery_frames": 190191
+  },
+  "rows": [
+    {
+      "metric": "综合测试集规模",
+      "value": {
+        "identities": 1004,
+        "gallery_videos": 1004,
+        "query_images": 1004,
+        "gallery_frames": 190191,
+        "formal_test_queries": 502
+      },
+      "target": "≥1万人、10万段视频、100万帧",
+      "status": "FAIL",
+      "source": {
+        "path": "data/ytf/experiment_full.json",
+        "sha256": "dbe5b240c7a3560f6fdeb0bf74f9e3d086bdf23b18179d53968b7ef600e4c9f8"
+      },
+      "note": "manifest 规模是数据覆盖证据；合成或重复样本不得用于替代真实身份覆盖。"
+    },
+    {
+      "metric": "明文 1:N Top-1",
+      "value": "86.056%",
+      "target": "≥95%",
+      "status": "FAIL",
+      "source": {
+        "path": "data/ytf/experiments/ytf_arcface_test_20261101/metrics.json",
+        "sha256": "9cc5750db413c869677bde957c4e7c0d74b6bc43c8fce18b62f756d4c21bd9b3"
+      },
+      "note": "正式 Query 数：502；分母保留未评分 Query。"
+    },
+    {
+      "metric": "明文 TAR@FAR≤1e-3",
+      "value": "86.653%",
+      "target": "TAR≥90%，FAR≤1e-3",
+      "status": "FAIL",
+      "source": {
+        "path": "data/ytf/experiments/ytf_arcface_test_20261101/metrics.json",
+        "sha256": "9cc5750db413c869677bde957c4e7c0d74b6bc43c8fce18b62f756d4c21bd9b3"
+      },
+      "note": "实际 FAR=0.000998004；阈值须来自独立 selection。"
+    },
+    {
+      "metric": "密文域 Top-1 下降",
+      "value": "not implemented",
+      "target": "≤2个百分点",
+      "status": "NOT_IMPLEMENTED",
+      "source": {
+        "path": "data/ytf/experiments/ytf_arcface_test_20261101/metrics.json",
+        "sha256": "9cc5750db413c869677bde957c4e7c0d74b6bc43c8fce18b62f756d4c21bd9b3"
+      },
+      "note": "当前 encrypted_restore 先解密恢复再做明文检索。"
+    },
+    {
+      "metric": "密文域结果与明文一致率",
+      "value": {
+        "consistent": true,
+        "max_absolute_similarity_delta": 0.0,
+        "pair_count": 252004,
+        "scored_pair_count": 239478,
+        "tolerance": 1e-06
+      },
+      "target": "≥99.9%",
+      "status": "PARTIAL",
+      "source": {
+        "path": "data/ytf/experiments/ytf_arcface_test_20261101/metrics.json",
+        "sha256": "9cc5750db413c869677bde957c4e7c0d74b6bc43c8fce18b62f756d4c21bd9b3"
+      },
+      "note": "当前一致性只比较认证恢复后的明文检索，不是密文域 ANN。"
+    },
+    {
+      "metric": "SM4 完整封装加/解密吞吐",
+      "value": {
+        "encrypt_MB_s": 69.34262086776323,
+        "decrypt_MB_s": 84.00221305955513
+      },
+      "target": "均≥500 MB/s（十进制）",
+      "status": "FAIL",
+      "source": {
+        "path": "results/indicator_benchmark_20261101_sm4_final.json",
+        "sha256": "2eea4bf449336ae5e5388c63e9889af644429d27cb49d348587c5bb31b6ed5c3"
+      },
+      "note": "完整 CBC+HMAC-SM3 多轮中位数；原语与文件 I/O 另行计量。"
+    },
+    {
+      "metric": "SM2 签名/验签吞吐",
+      "value": {
+        "sign_ops_s": 2957.6149233283195,
+        "verify_ops_s": 932.8674879178031
+      },
+      "target": "≥1000/500 次/s",
+      "status": "PASS",
+      "source": {
+        "path": "results/indicator_benchmark_20261101_sm4_final.json",
+        "sha256": "2eea4bf449336ae5e5388c63e9889af644429d27cb49d348587c5bb31b6ed5c3"
+      },
+      "note": "本机 API 基准，不代表云端并发保证。"
+    },
+    {
+      "metric": "1080p 单路加密时延",
+      "value": "18.024 ms",
+      "target": "≤50 ms",
+      "status": "PARTIAL",
+      "source": {
+        "path": "results/indicator_benchmark_20261101_sm4_final.json",
+        "sha256": "2eea4bf449336ae5e5388c63e9889af644429d27cb49d348587c5bb31b6ed5c3"
+      },
+      "note": "当前记录为两帧合成 1080p 文件；不能证明持续单路码流。"
+    },
+    {
+      "metric": "端到端上传/检索响应",
+      "value": {
+        "cold_seconds": 4.940798917000002,
+        "warm_seconds": 0.46456812499999955
+      },
+      "target": "平均≤2 s",
+      "status": "PARTIAL",
+      "source": {
+        "path": "results/cloud_validation_20261101_v2.json",
+        "sha256": "7a2dc668729f87ff439aff8be13d17210ce2d840efa7cc05314cf889132e694b"
+      },
+      "note": "冷/热各一个固定样本；冷启动超2秒，不能据此估计总体平均或P95。"
+    },
+    {
+      "metric": "终端/分辨率/并发支持",
+      "value": {
+        "synthetic_resolution_count": 5,
+        "local_api_success_rate": 1.0,
+        "https_upload_success_rate": 1.0,
+        "https_upload_requests": 10.0
+      },
+      "target": "≥3类终端、5种分辨率、10路并发",
+      "status": "PARTIAL",
+      "source": {
+        "path": "results/cloud_validation_20261101_v2.json",
+        "sha256": "7a2dc668729f87ff439aff8be13d17210ce2d840efa7cc05314cf889132e694b"
+      },
+      "note": "已做的 5 分辨率和 10 请求均为本机功能样本；三类真实终端及持续推理并发未测。"
+    },
+    {
+      "metric": "密钥轮换后旧密钥失效",
+      "value": "v1 单视频重加密；v2 per-video SM2 信封、单/批次 rewrap 原型",
+      "target": "全量旧密钥失效率=100%",
+      "status": "PARTIAL",
+      "source": {
+        "path": "results/phase2_key_envelope_smoke_20261102.json",
+        "sha256": "ee12f8ae067a7a327e0fb9d8fd7e57640cedee3a7f94bb14b695d0ec4b7199b4"
+      },
+      "note": "小样本验证了 file-backed journal 续跑和新目标完整性；仍未接入服务数据库/任务队列，没有 KMS、缓存/备份处置或全局旧密钥撤销证明。"
+    },
+    {
+      "metric": "未授权解密成功率",
+      "value": {
+        "success_rate": 0.0,
+        "trials": 100.0
+      },
+      "target": "≤0.1%",
+      "status": "PARTIAL",
+      "source": {
+        "path": "results/indicator_benchmark_20261031.json",
+        "sha256": "4290c493d7b5b8be06d57727a498de0915f7c67cbdd5d57a16d92c44a9b329b9"
+      },
+      "note": "错误密钥小样本不能替代 RBAC、跨租户和密钥泄露攻击面验收。"
+    },
+    {
+      "metric": "视频/特征篡改检出率",
+      "value": {
+        "video_tamper_detection_rate": 1.0,
+        "trials": 100.0
+      },
+      "target": "≥99.9%",
+      "status": "PARTIAL",
+      "source": {
+        "path": "results/indicator_benchmark_20261031.json",
+        "sha256": "4290c493d7b5b8be06d57727a498de0915f7c67cbdd5d57a16d92c44a9b329b9"
+      },
+      "note": "当前随机分块篡改样本不覆盖特征索引或数据库与密钥同时受控。"
+    },
+    {
+      "metric": "接口调用成功率",
+      "value": {
+        "local_api": 1.0,
+        "https_upload": 1.0
+      },
+      "target": "≥99.5%",
+      "status": "PARTIAL",
+      "source": {
+        "path": "results/cloud_validation_20261101_v2.json",
+        "sha256": "7a2dc668729f87ff439aff8be13d17210ce2d840efa7cc05314cf889132e694b"
+      },
+      "note": "仅小样本本机请求；没有持续可用性压测。"
+    },
+    {
+      "metric": "日均处理能力",
+      "value": "not measured",
+      "target": "≥10万段视频或100万帧",
+      "status": "NOT_MEASURED",
+      "source": {
+        "path": "results/cloud_validation_20261101_v2.json",
+        "sha256": "7a2dc668729f87ff439aff8be13d17210ce2d840efa7cc05314cf889132e694b"
+      },
+      "note": ""
+    },
+    {
+      "metric": "自动审计报告生成成功率",
+      "value": "按需导出接口已实现；成功率未测",
+      "target": "≥99%",
+      "status": "PARTIAL",
+      "source": "platform audit export",
+      "note": "功能验证不等于长期运行成功率。"
+    },
+    {
+      "metric": "审计日志完整率",
+      "value": "本地哈希链校验原型已实现；完整率未测",
+      "target": "≥99.9%",
+      "status": "NOT_MEASURED",
+      "source": "local SQLite audit chain prototype",
+      "note": "无独立外部锚点；不能证明尾部未截断或全库未回滚，完整率仍需外部对账和持续故障注入测量。"
+    }
+  ],
+  "research": [
+    {
+      "area": "SM2/SM4 数字信封",
+      "status": "PARTIAL",
+      "note": "小样本验证了 opt-in v2 逐视频随机 key material、SM2 接收方封装和 HMAC-SM3 manifest；Web/cloud 默认仍写 v1，暂无可信 KMS/公钥目录。"
+    },
+    {
+      "area": "视频分块与选择性加密",
+      "status": "PARTIAL",
+      "note": "全视频字节分块加密已实现；编解码器感知的选择性加密未实现。"
+    },
+    {
+      "area": "密钥派生与轮换",
+      "status": "PARTIAL",
+      "note": "v1 单视频重加密与 v2 file-backed 可恢复 batch rewrap 原型已实现；服务级任务/DB 切换、全局撤销及缓存和备份处置未实现。"
+    },
+    {
+      "area": "人像特征保护与可撤销模板",
+      "status": "PARTIAL",
+      "note": "静态缓存加密已实现；可撤销、不可关联模板未实现。"
+    },
+    {
+      "area": "密文安全索引与 ANN",
+      "status": "NOT_IMPLEMENTED",
+      "note": "当前为认证恢复后明文精确检索。"
+    },
+    {
+      "area": "边缘-云协同推理",
+      "status": "NOT_IMPLEMENTED",
+      "note": "没有边缘设备部署与通信协议验收。"
+    },
+    {
+      "area": "完整性与审计追溯",
+      "status": "PARTIAL",
+      "note": "分块认证、恢复 SHA-256、本地审计 SHA-256 链及快照校验已实现；无外部锚点，防删证明和完整率未测。"
+    },
+    {
+      "area": "平台集成",
+      "status": "PARTIAL",
+      "note": "课程平台已实现；远程多租户、持续负载和规模化部署未测。"
+    }
+  ],
+  "sources": {
+    "metrics": {
+      "path": "data/ytf/experiments/ytf_arcface_test_20261101/metrics.json",
+      "sha256": "9cc5750db413c869677bde957c4e7c0d74b6bc43c8fce18b62f756d4c21bd9b3"
+    },
+    "benchmark": {
+      "path": "results/indicator_benchmark_20261101_sm4_final.json",
+      "sha256": "2eea4bf449336ae5e5388c63e9889af644429d27cb49d348587c5bb31b6ed5c3"
+    },
+    "manifest": {
+      "path": "data/ytf/experiment_full.json",
+      "sha256": "dbe5b240c7a3560f6fdeb0bf74f9e3d086bdf23b18179d53968b7ef600e4c9f8"
+    },
+    "cloud_validation": {
+      "path": "results/cloud_validation_20261101_v2.json",
+      "sha256": "7a2dc668729f87ff439aff8be13d17210ce2d840efa7cc05314cf889132e694b"
+    },
+    "security_benchmark": {
+      "path": "results/indicator_benchmark_20261031.json",
+      "sha256": "4290c493d7b5b8be06d57727a498de0915f7c67cbdd5d57a16d92c44a9b329b9"
+    },
+    "key_management_smoke": {
+      "path": "results/phase2_key_envelope_smoke_20261102.json",
+      "sha256": "ee12f8ae067a7a327e0fb9d8fd7e57640cedee3a7f94bb14b695d0ec4b7199b4"
+    }
+  },
+  "scope_note": "本报告只读取已保存证据；没有运行正式识别实验或新性能基准。"
+}

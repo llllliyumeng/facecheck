@@ -9,8 +9,8 @@
 | 已实现 | SM4-CBC 视频分块、HMAC-SM3 上下文认证、SM3 用途/版本派生、认证后恢复、大小和 SHA-256 核验 | 这是全视频字节分块加密；不是编解码器感知的选择性加密。生产 v1 本地 manifest 没有独立 MAC/签名 |
 | 已实现 | YuNet + ArcFace 默认识别、SFace 对照、identity-disjoint selection/test、阈值冻结和失败样本保留 | 正式 ArcFace test Top-1 86.06%、TAR 86.65%；均未达到课题目标 |
 | 已实现 | HTTPS 云端启动、admin/operator/auditor 组织级权限、会话/凭据撤销、加密特征缓存、后台任务、审计导出 | 本机单实例验证；无远程持续负载或多租户隔离证据 |
-| 部分实现 | SM2 加解密及签名接口、显式 opt-in 的 v2 逐视频密钥信封和 HMAC-SM3 manifest 原型 | 生产 Web/cloud 上传仍写 v1；缺可信证书/公钥目录、私钥 KMS 和数据库引用迁移 |
-| 部分实现 | 版本化派生、v1 单视频重加密、v2 单/批量 rewrap 文件原型及原子进度 journal | 未接入服务任务队列/数据库原子切换；缓存、备份、副本和旧密钥全局撤销未覆盖，未证明“旧密钥失效率 100%” |
+| 部分实现 | SM2 加解密及签名接口、显式 opt-in 的 v2 逐视频密钥信封和 HMAC-SM3 manifest 原型；有 SHA-256 pin 公钥目录和 provider adapter 接口 | 公钥目录与 adapter 尚无生产信任部署；Web/cloud 默认仍写 v1；无真实 KMS/HSM |
+| 部分实现 | 版本化派生、v1 全量重加密、v2 rewrap、单机 SQLite 持久化队列、DB 内对象引用/manifest 锚点事务切换、缓存失效和撤销门槛原型 | 不是分布式队列；对象存储与 SQLite 不是跨系统原子事务；备份完整性依赖运维清单；全局旧密钥撤销未验证，未证明“旧密钥失效率 100%” |
 | 部分实现 | 视频密文和静态特征缓存的认证保护、SQLite 审计 SHA-256 链、快照校验和导出 | 特征没有可撤销变换；审计链无外部不可变锚点，尾部截断/整库回滚无法由本地链证明；完整率未测 |
 | 未实现 | 密文域安全索引/ANN | 现有 `encrypted_restore` 先恢复明文，再做 cosine/max 检索 |
 | 未实现 | 可撤销、跨库不可关联的人像模板 | 加密缓存是静态加密，不是可撤销模板 |
@@ -32,7 +32,7 @@
 | 在线检索冷/热请求 | HTTPS 固定样本 4.9408/0.4646 s，各一次 | 冷样本超过 2 秒；总体平均、P95 未测 |
 | HTTPS 并发上传 | 4 帧合成视频 10/10 成功 | 功能并发样本，非持续 10 路推理或可用性证明 |
 
-前序输入和 SHA-256 记录保留在 `results/facecheck_review_20261101.json`；审计链阶段核对保留在 `results/facecheck_review_20261101_audit.json`。阶段二小样本记录见 `results/phase2_key_envelope_smoke_20261102_v2.json`，最新指标核对见 `results/facecheck_review_20261102_phase2_v3.json`；前序结果均保留。
+前序输入和 SHA-256 记录保留在 `results/facecheck_review_20261101.json`；审计链阶段核对保留在 `results/facecheck_review_20261101_audit.json`。v2 格式小样本记录见 `results/phase2_key_envelope_smoke_20261102_v2.json`；轮换控制最新小样本和指标核对分别见 `results/phase2_rotation_control_smoke_20261102_v5.json`、`results/facecheck_review_20261102_phase2_v8.json`；此前结果均保留。
 
 ## 分阶段工作
 
@@ -56,12 +56,14 @@
 ### 阶段 2：数字信封、manifest 身份和批量密钥轮换
 
 - 已完成格式决策与 opt-in 原型：见 `docs/adr/0002-video-key-envelope-and-rotation.md`。v2 每对象随机生成 SM4/MAC 主密钥材料，以 SM2 封装并记录 `key_id`、`key_version`；独立 KDF context 派生 HMAC-SM3 manifest tag。旧 v1 读写路径保持兼容，服务默认仍写 v1。
-- 已完成接口和本地批量原型：`VideoKeyProvider`、`Sm2MemoryKeyProvider`、`store_enveloped_video`、`restore_enveloped_video`、`rewrap_enveloped_video`、`rotate_enveloped_batch`。批任务通过原子 JSON journal 记录对象、摘要、状态、重试次数和错误类型；只在新目标完成认证恢复后发布，源对象保持不变。
-- 小样本验证记录见 `results/phase2_key_envelope_smoke_20261102_v2.json`；v1 兼容、v2 往返、篡改拒绝、rewrap 和批次续跑通过。该记录只证明合成对象上的功能路径，不证明生产密钥生命周期或规模性能。
-- 待完成生产集成：可信 KMS/公钥目录、任务库中的对象与 key 状态、服务队列、manifest 摘要锚点/对象引用原子切换、缓存和备份迁移、故障恢复演练。当前 file-backed journal 不是生产任务队列，原型批处理不代表全局轮换已完成。
+- 已完成接口和本地批量原型：`VideoKeyProvider`、digest-pinned `PinnedVideoKeyDirectory`、provider registry/factory、`store_enveloped_video`、`restore_enveloped_video`、`rewrap_enveloped_video`、`rotate_enveloped_batch`。文件 journal 路径仍保留。
+- 已完成单机服务原型：`RotationControlRepository` 在 SQLite 记录迁移任务、对象和缓存/备份/副本清单；worker 验证目标后，在一个 SQLite 事务内 CAS 切换对象引用、manifest SHA-256 锚点与 key 元数据并写审计事件。重试和中断恢复有显式状态；目标路径可确定性重用。SQLite 单机队列不等于生产分布式队列，对象存储发布与数据库提交也不是跨系统原子事务。
+- 已实现撤销前门槛：要求当前任务引用切换、缓存/备份/副本处置、清单摘要、旧 key 写入围栏和在途读取排空；旧 v1 缺失 key ID 时按 legacy key 处理。隐藏暂存项和未知对象会让本地存储清单不完整。数据库拒绝在任务切换前处置其旧对象。管理员 API 对轮换路由限 admin，提供处置登记和注入式 KMS/HSM 撤销调用。
+- 小样本验证记录见 `results/phase2_rotation_control_smoke_20261102_v5.json`；仅验证合成对象上的队列、DB 内原子引用切换、缓存清理、失败恢复、处置顺序、管理员路由和撤销门槛。假回执不代表真实 KMS 操作，配置的备份根和“完整”声明不代表外部备份已独立证明。
+- 仍缺生产 KMS/HSM、公钥 pin 的可信部署配置、跨系统引用切换/补偿、分布式队列、所有备份和灾备介质的可核验清单、真实恢复及全局撤销演练。因此旧密钥失效率 100% 尚未证明；rewrap 不等同 per-video 数据密钥泄露后的全量重新加密。
 - 定义“旧密钥失效”的验收边界：仅在所有仍需保留的数据和缓存完成迁移、旧副本/备份处置策略确定后，测试旧密钥无法解密已迁移对象。不能同时声称可继续用旧密钥恢复未迁移对象且旧密钥全局失效。
 - 选择性加密必须先比较全量 CBC+HMAC 与 codec-aware 方案，并列出可见的帧类型、长度、时间和结构信息；未完成泄漏分析前保持全量加密默认。
-- 外部条件：可信 SM2 公钥注册/证书来源、私钥保管边界、密钥备份/恢复策略和运维责任人。
+- 外部条件：可信 SM2 公钥注册/证书来源、私钥保管边界、生产 KMS/HSM、所有备份/灾备位置清单、写入围栏与读者排空操作协议，以及运维责任人。
 
 ### 阶段 3：SM4 和在线时延
 

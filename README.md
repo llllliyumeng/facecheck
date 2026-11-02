@@ -50,7 +50,7 @@ Linux 单实例容器部署文件位于 `deploy/`，包含固定 GmSSL 3.2.0 源
 ```text
 facecheck/
 ├── frontend/                 # 中文控制台页面
-├── models/                   # 本地 ONNX 模型，不纳入 Git
+├── models/                   # YuNet/SFace 随仓库分发；ArcFace 权重单独获取、不纳入 Git
 ├── scripts/                  # 本地启动脚本
 ├── src/facecheck/
 │   ├── api.py                # FastAPI 路由和响应模型
@@ -77,7 +77,7 @@ facecheck/
 - Python 3.9 或更高版本；
 - [uv](https://docs.astral.sh/uv/)（推荐，但不是必须）；
 - macOS Apple Silicon、macOS Intel 或 Windows 10/11；
-- 项目 `models/` 目录中已提供 YuNet、ArcFace 和 SFace ONNX 模型；
+- 项目 `models/` 目录中已提供 YuNet 和 SFace；默认 ArcFace 权重须按[模型说明](models/README.md)单独获取；
 - 仅使用明确授权的本地测试素材。
 
 ### 方式一：使用 uv（推荐）
@@ -144,13 +144,14 @@ uv run python ...        → python ...
 
 ## 模型准备
 
-当前仓库已包含以下模型，队友克隆项目后通常不需要另行下载：
+仓库包含 YuNet 和 SFace；ArcFace 权重因文件较大且仅限非商业研究用途，不纳入普通 Git。默认使用 ArcFace 的成员需从官方 `buffalo_l` 模型包中单独提取权重，并核验 SHA-256。仓库自带文件与本机 ArcFace 文件为：
 
 ```text
 models/face_detection_yunet_2023mar.onnx
-models/arcface_w600k_r50.onnx
 models/face_recognition_sface_2021dec.onnx
 ```
+
+另行获取后将 `w600k_r50.onnx` 保存为 `models/arcface_w600k_r50.onnx`。校验方法和许可边界见 [模型说明](models/README.md)。
 
 模型来源、许可证说明和 SHA-256 校验值见 [models/README.md](models/README.md)。课程报告中应保留模型来源和许可证信息。
 
@@ -426,7 +427,7 @@ ArcFace 正式 test 的独立入口为 `python scripts/run_ytf_arcface_test.py`�
 
 完整的指标逐项核对、当前证据、状态和差距见 [docs/indicator_gap_analysis.md](docs/indicator_gap_analysis.md)。优化阶段、外部数据/设备依赖见 [优化路线图](docs/optimization_roadmap_20261101.md)；密文检索威胁模型和架构决策见 [ADR 0001](docs/adr/0001-private-search-architecture.md)。可用 `scripts/evaluate_indicators.py` 对正式指标、benchmark、manifest 和云端验证 JSON 生成带源文件 SHA-256 的新核对结果；脚本不运行实验并拒绝覆盖输出文件。
 
-阶段二新增的 v2 密钥信封原型及边界见 [ADR 0002](docs/adr/0002-video-key-envelope-and-rotation.md)。它是显式调用的本地 API，不改变当前服务写入 v1 格式的默认流程。
+阶段二新增的 v2 密钥信封原型及边界见 [ADR 0002](docs/adr/0002-video-key-envelope-and-rotation.md)。另有单机 SQLite 轮换队列、数据库内对象引用/manifest 锚点事务切换、缓存清理与撤销门槛原型；最新小样本记录见 `results/phase2_rotation_control_smoke_20261102_v5.json`，指标核对见 `results/facecheck_review_20261102_phase2_v8.json`。v2 仍是显式调用，不改变当前服务写入 v1 格式的默认流程。没有生产 KMS/HSM、分布式队列、完整备份盘点或真实全局撤销证明，旧密钥失效率 100% 尚未证明。
 
 国密后端默认配置为 `FACECHECK_CRYPTO_BACKEND=auto`：优先加载 GmSSL 3 C 原生后端，动态库不可用时回退到 `PythonBackend`。设置为 `native` 时要求 GmSSL C 库可加载；设置为 `python` 可强制使用兼容实现。原生后端中的 SM4 默认由 GmSSL 执行；`FACECHECK_SM4_NATIVE_IMPL=openssl` 可选用 OpenSSL EVP SM4-CBC，`gmssl` 或未设置时使用 GmSSL。Python 兼容后端使用 gmssl Python 实现 SM2，并使用 cryptography 的 SM3/SM4。
 

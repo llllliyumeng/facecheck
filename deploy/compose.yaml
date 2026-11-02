@@ -1,0 +1,52 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    # Trust forwarded scheme only in this non-published, isolated proxy network.
+    command: [python, -m, uvicorn, "facecheck.main:app", --host, "0.0.0.0", --port, "8000", --proxy-headers, --forwarded-allow-ips, "*", --workers, "1", --limit-concurrency, "64"]
+    user: "${FACECHECK_RUN_UID:-10001}:${FACECHECK_RUN_GID:-10001}"
+    environment:
+      FACECHECK_DEPLOYMENT: cloud
+      FACECHECK_PUBLIC_ORIGIN: "https://${FACECHECK_DOMAIN:?set FACECHECK_DOMAIN}"
+      FACECHECK_AUTH_CREDENTIALS_FILE: /run/facecheck-secrets/credentials.json
+      FACECHECK_SM4_KEY_FILE: /run/facecheck-secrets/sm4.key
+      FACECHECK_MAC_KEY_FILE: /run/facecheck-secrets/mac.key
+      FACECHECK_FEATURE_CACHE: "1"
+    volumes:
+      - ./private:/run/facecheck-secrets:ro
+      - ./runtime:/var/lib/facecheck
+      - ../models:/app/models:ro
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777,size=256m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [backend]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/health',timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  proxy:
+    image: caddy:2.10.2-alpine
+    restart: unless-stopped
+    environment:
+      FACECHECK_DOMAIN: "${FACECHECK_DOMAIN:?set FACECHECK_DOMAIN}"
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    networks: [backend, edge]
+networks:
+  backend:
+    internal: true
+  edge: {}
+volumes:
+  caddy_data: {}
+  caddy_config: {}
